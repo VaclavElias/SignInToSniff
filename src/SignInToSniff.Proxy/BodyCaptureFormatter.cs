@@ -25,7 +25,8 @@ public static class BodyCaptureFormatter
             return false;
         }
 
-        if (mediaType.StartsWith("multipart/", StringComparison.OrdinalIgnoreCase) || IsKnownBinary(mediaType))
+        if (mediaType.StartsWith("multipart/", StringComparison.OrdinalIgnoreCase) || IsKnownBinary(mediaType) ||
+            (mediaType.StartsWith("application/", StringComparison.OrdinalIgnoreCase) && !IsTextual(mediaType)))
         {
             omissionReason = $"[Binary body omitted{(mediaType.Length == 0 ? "." : $": {mediaType}.")}]";
             return false;
@@ -152,9 +153,16 @@ public static class BodyCaptureFormatter
 
     private static string GetMediaType(string? contentType) => (contentType ?? string.Empty).Split(';', 2)[0].Trim().ToLowerInvariant();
     private static bool IsJson(string mediaType) => mediaType == "application/json" || mediaType.EndsWith("+json", StringComparison.Ordinal);
+    private static bool IsTextual(string mediaType) =>
+        mediaType.StartsWith("text/", StringComparison.Ordinal) || IsJson(mediaType) ||
+        mediaType.EndsWith("+xml", StringComparison.Ordinal) ||
+        mediaType is "application/xml" or "application/javascript" or "application/ecmascript" or
+            "application/x-javascript" or "application/x-www-form-urlencoded" or "application/graphql" or
+            "application/sql" or "application/yaml" or "application/x-yaml";
     private static bool IsKnownBinary(string mediaType) =>
         mediaType.StartsWith("image/", StringComparison.Ordinal) || mediaType.StartsWith("audio/", StringComparison.Ordinal) ||
         mediaType.StartsWith("video/", StringComparison.Ordinal) || mediaType.StartsWith("font/", StringComparison.Ordinal) ||
         mediaType is "application/octet-stream" or "application/pdf" or "application/zip" or "application/gzip" or
+            "application/x-chrome-extension" or "application/wasm" or
             "application/x-7z-compressed" or "application/x-rar-compressed";
 }

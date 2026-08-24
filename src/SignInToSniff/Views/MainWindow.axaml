@@ -123,14 +123,17 @@
               SelectedItem="{Binding SelectedSession}">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="models:CapturedSession">
-                <Grid ColumnDefinitions="64,56,*,Auto" Margin="9,10">
+                <Grid ColumnDefinitions="64,56,*,64,Auto" Margin="9,10">
                   <TextBlock Text="{Binding Method}" Foreground="#1769E0" FontWeight="Bold" FontSize="12" VerticalAlignment="Center" />
                   <TextBlock Grid.Column="1" Text="{Binding StatusText}" FontWeight="SemiBold" VerticalAlignment="Center" />
                   <StackPanel Grid.Column="2" Margin="4,0,12,0">
                     <TextBlock Text="{Binding Host}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding Url}" Classes="muted" FontSize="11" TextTrimming="CharacterEllipsis" />
                   </StackPanel>
-                  <StackPanel Grid.Column="3" IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).ShowTimeColumn}" VerticalAlignment="Center">
+                  <StackPanel Grid.Column="3" VerticalAlignment="Center" Margin="0,0,12,0">
+                    <TextBlock Text="{Binding SizeText}" Classes="muted" FontSize="11" HorizontalAlignment="Right" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="4" IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).ShowTimeColumn}" VerticalAlignment="Center">
                     <TextBlock Text="{Binding StartedAtText}" Classes="muted" FontSize="11" HorizontalAlignment="Right" />
                     <TextBlock Text="{Binding DurationText}" Classes="muted" FontSize="10" HorizontalAlignment="Right" />
                   </StackPanel>

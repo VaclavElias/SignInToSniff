@@ -47,6 +47,7 @@ public sealed class TitaniumProxyEngineTests
         Assert.Equal(200, responseUpdate.Session.StatusCode);
         Assert.Contains("X-SignInToSniff-Test", responseUpdate.Session.ResponseHeaders, StringComparison.OrdinalIgnoreCase);
         Assert.Equal("metadata captured", responseUpdate.Session.ResponseBody);
+        Assert.Equal("17 B", responseUpdate.Session.SizeText);
         Assert.NotNull(responseUpdate.Session.DurationMilliseconds);
     }
 

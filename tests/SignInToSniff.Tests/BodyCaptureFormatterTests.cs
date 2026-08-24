@@ -65,6 +65,13 @@ public sealed class BodyCaptureFormatterTests
         Assert.Contains("Binary body omitted", reason);
     }
 
+    [Fact]
+    public void ShouldRead_RejectsChromeExtensionPackage()
+    {
+        Assert.False(BodyCaptureFormatter.ShouldRead("application/x-chrome-extension", 248_531, out var reason));
+        Assert.Contains("Binary body omitted", reason);
+    }
+
     private static byte[] Compress(byte[] source, string encoding)
     {
         using var output = new MemoryStream();

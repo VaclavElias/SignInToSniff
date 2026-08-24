@@ -20,7 +20,7 @@ dotnet run --project src/SignInToSniff/SignInToSniff.csproj
 1. Launch SignInToSniff and click **Start Proxy**.
 2. Open **Intercept** and choose a client, or configure your own HTTP client to use `127.0.0.1:8000`.
 3. Browse or send requests to an `http://` address.
-4. Select a captured request to inspect its URL, headers, body, status, and duration.
+4. Select a captured request to inspect its URL, headers, body, status, response size, and duration.
 5. Use the domain filter, ordering options, auto-scroll toggle, and draggable Headers/Body splitter as needed.
 6. Click **Stop** when finished.
 

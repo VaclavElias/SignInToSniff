@@ -175,6 +175,7 @@ public sealed class TitaniumProxyEngine : IProxyEngine
             StatusCode = response.StatusCode,
             ResponseHeaders = FormatHeaders(headers),
             ResponseBody = responseBody,
+            ResponseSizeBytes = response.ContentLength >= 0 ? response.ContentLength : null,
             DurationMilliseconds = state.Stopwatch.ElapsedMilliseconds
         };
 
