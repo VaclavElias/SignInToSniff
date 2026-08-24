@@ -20,6 +20,7 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     private bool _disposed;
     private int _totalCaptured;
     private CancellationTokenSource? _searchCancellation;
+    private bool _lastSearchBulkSelection = true;
 
     [ObservableProperty] private string _searchQuery = string.Empty;
     [ObservableProperty] private bool _searchHost = true;
@@ -73,6 +74,11 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     public string TotalCapturedText => $"Total captured: {_totalCaptured:N0}";
     public string HiddenRequestsText => $"Hidden: {Math.Max(0, _allSessions.Count - Sessions.Count):N0}";
     public string ExclusionCountText => $"Exclusion rules: {Exclusions.Count:N0}";
+    public string SearchScopeBulkActionText => AllSearchScopesSelected
+        ? "Deselect all"
+        : NoSearchScopesSelected
+            ? "Select all"
+            : _lastSearchBulkSelection ? "Deselect all" : "Select all";
 
     public void DeleteSession(CapturedSession session)
     {
@@ -143,12 +149,12 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     }
 
     partial void OnSearchQueryChanged(string value) => ScheduleSearchFilter();
-    partial void OnSearchHostChanged(bool value) => ScheduleSearchFilter();
-    partial void OnSearchUrlChanged(bool value) => ScheduleSearchFilter();
-    partial void OnSearchMethodStatusChanged(bool value) => ScheduleSearchFilter();
-    partial void OnSearchHeadersChanged(bool value) => ScheduleSearchFilter();
-    partial void OnSearchBodiesChanged(bool value) => ScheduleSearchFilter();
-    partial void OnSearchMetadataChanged(bool value) => ScheduleSearchFilter();
+    partial void OnSearchHostChanged(bool value) => OnSearchScopeChanged();
+    partial void OnSearchUrlChanged(bool value) => OnSearchScopeChanged();
+    partial void OnSearchMethodStatusChanged(bool value) => OnSearchScopeChanged();
+    partial void OnSearchHeadersChanged(bool value) => OnSearchScopeChanged();
+    partial void OnSearchBodiesChanged(bool value) => OnSearchScopeChanged();
+    partial void OnSearchMetadataChanged(bool value) => OnSearchScopeChanged();
     partial void OnNewestFirstChanged(bool value) => ApplyFilter();
 
     partial void OnProxyStateChanged(ProxyState value)
@@ -184,6 +190,20 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
 
     [RelayCommand]
     private void ClearSearch() => SearchQuery = string.Empty;
+
+    [RelayCommand]
+    private void ToggleAllSearchScopes()
+    {
+        var selectAll = SearchScopeBulkActionText == "Select all";
+        _lastSearchBulkSelection = selectAll;
+        SearchHost = selectAll;
+        SearchUrl = selectAll;
+        SearchMethodStatus = selectAll;
+        SearchHeaders = selectAll;
+        SearchBodies = selectAll;
+        SearchMetadata = selectAll;
+        OnPropertyChanged(nameof(SearchScopeBulkActionText));
+    }
 
     [RelayCommand]
     private void ClearLogs()
@@ -309,6 +329,20 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
 
     private SearchOptions GetSearchOptions() => new(
         SearchHost, SearchUrl, SearchMethodStatus, SearchHeaders, SearchBodies, SearchMetadata);
+
+    private bool AllSearchScopesSelected =>
+        SearchHost && SearchUrl && SearchMethodStatus && SearchHeaders && SearchBodies && SearchMetadata;
+
+    private bool NoSearchScopesSelected =>
+        !SearchHost && !SearchUrl && !SearchMethodStatus && !SearchHeaders && !SearchBodies && !SearchMetadata;
+
+    private void OnSearchScopeChanged()
+    {
+        if (AllSearchScopesSelected) _lastSearchBulkSelection = true;
+        else if (NoSearchScopesSelected) _lastSearchBulkSelection = false;
+        OnPropertyChanged(nameof(SearchScopeBulkActionText));
+        ScheduleSearchFilter();
+    }
 
     private void ScheduleSearchFilter()
     {

@@ -113,6 +113,8 @@
           <Button Grid.Column="2" Content="⚙" ToolTip.Tip="Choose searchable fields" Padding="10,4" Margin="4,0,0,0">
             <Button.Flyout>
               <MenuFlyout Placement="BottomEdgeAlignedRight">
+                <MenuItem Header="{Binding SearchScopeBulkActionText}" Command="{Binding ToggleAllSearchScopesCommand}" />
+                <Separator />
                 <MenuItem Header="Host" ToggleType="CheckBox" IsChecked="{Binding SearchHost, Mode=TwoWay}" />
                 <MenuItem Header="URL" ToggleType="CheckBox" IsChecked="{Binding SearchUrl, Mode=TwoWay}" />
                 <MenuItem Header="Method and status" ToggleType="CheckBox" IsChecked="{Binding SearchMethodStatus, Mode=TwoWay}" />

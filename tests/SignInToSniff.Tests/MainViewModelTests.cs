@@ -161,6 +161,31 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
+    public void SearchScopeBulkAction_SelectsAndDeselectsAllScopes()
+    {
+        var (viewModel, _) = CreateViewModel();
+        Assert.Equal("Deselect all", viewModel.SearchScopeBulkActionText);
+
+        viewModel.ToggleAllSearchScopesCommand.Execute(null);
+
+        Assert.False(viewModel.SearchHost);
+        Assert.False(viewModel.SearchUrl);
+        Assert.False(viewModel.SearchMethodStatus);
+        Assert.False(viewModel.SearchHeaders);
+        Assert.False(viewModel.SearchBodies);
+        Assert.False(viewModel.SearchMetadata);
+        Assert.Equal("Select all", viewModel.SearchScopeBulkActionText);
+
+        viewModel.SearchHost = true;
+        Assert.Equal("Select all", viewModel.SearchScopeBulkActionText);
+
+        viewModel.ToggleAllSearchScopesCommand.Execute(null);
+        Assert.True(viewModel.SearchHost && viewModel.SearchUrl && viewModel.SearchMethodStatus &&
+                    viewModel.SearchHeaders && viewModel.SearchBodies && viewModel.SearchMetadata);
+        Assert.Equal("Deselect all", viewModel.SearchScopeBulkActionText);
+    }
+
+    [Fact]
     public async Task DomainExclusion_RemovesExistingAndRejectsFutureMatchingSessions()
     {
         var engine = new FakeProxyEngine();
