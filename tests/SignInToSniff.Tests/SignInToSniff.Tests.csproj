@@ -15,5 +15,6 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/SignInToSniff.Core/SignInToSniff.Core.csproj" />
+    <ProjectReference Include="../../src/SignInToSniff.Proxy/SignInToSniff.Proxy.csproj" />
   </ItemGroup>
 </Project>

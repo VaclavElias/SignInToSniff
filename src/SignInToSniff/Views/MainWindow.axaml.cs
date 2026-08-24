@@ -16,6 +16,15 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
+        Closed += OnClosed;
+    }
+
+    private async void OnClosed(object? sender, EventArgs e)
+    {
+        if (DataContext is MainViewModel viewModel)
+        {
+            await viewModel.DisposeAsync();
+        }
     }
 
     private void OnLoaded(object? sender, RoutedEventArgs e)

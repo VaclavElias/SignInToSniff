@@ -2,55 +2,79 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SignInToSniff.Models;
+using SignInToSniff.Proxy;
+using SignInToSniff.Threading;
 
 namespace SignInToSniff.ViewModels;
 
-public sealed partial class MainViewModel : ViewModelBase
+public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
 {
+    private const int SessionLimit = 5_000;
     private readonly List<CapturedSession> _allSessions = [];
-    private int _sampleSequence;
+    private readonly IProxyEngine _proxyEngine;
+    private readonly IUiDispatcher _dispatcher;
+    private bool _disposed;
 
-    [ObservableProperty]
-    private string _domainFilter = string.Empty;
+    [ObservableProperty] private string _domainFilter = string.Empty;
+    [ObservableProperty] private bool _autoScroll = true;
+    [ObservableProperty] private bool _showTimeColumn = true;
+    [ObservableProperty] private bool _newestFirst;
+    [ObservableProperty] private CapturedSession? _selectedSession;
+    [ObservableProperty] private ProxyState _proxyState;
+    [ObservableProperty] private string? _errorMessage;
 
-    [ObservableProperty]
-    private bool _autoScroll = true;
-
-    [ObservableProperty]
-    private bool _showTimeColumn = true;
-
-    [ObservableProperty]
-    private bool _newestFirst;
-
-    [ObservableProperty]
-    private CapturedSession? _selectedSession;
-
-    public MainViewModel()
+    public MainViewModel(IProxyEngine proxyEngine, IUiDispatcher dispatcher)
     {
-        foreach (var session in CreateInitialSamples())
-        {
-            _allSessions.Add(session);
-            Sessions.Add(session);
-        }
-
-        SelectedSession = Sessions.FirstOrDefault();
+        _proxyEngine = proxyEngine;
+        _dispatcher = dispatcher;
+        ProxyState = proxyEngine.State;
+        proxyEngine.CaptureReceived += OnCaptureReceived;
+        proxyEngine.StateChanged += OnProxyStateChanged;
     }
 
     public ObservableCollection<CapturedSession> Sessions { get; } = [];
 
     public event EventHandler<CapturedSession>? VisibleSessionAdded;
 
-    public string ProxyStatus => "Proxy offline";
+    public string ProxyStatus => ProxyState switch
+    {
+        ProxyState.Starting => "Proxy starting…",
+        ProxyState.Running => "Proxy running",
+        ProxyState.Stopping => "Proxy stopping…",
+        ProxyState.Faulted => "Proxy faulted",
+        _ => "Proxy offline"
+    };
 
-    public string Endpoint => "127.0.0.1:8000";
-
+    public string Endpoint => _proxyEngine.Endpoint;
     public string SessionCountText => Sessions.Count == 1 ? "1 request" : $"{Sessions.Count} requests";
-
     public bool HasSessions => Sessions.Count > 0;
+    public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
+    public bool CanStartProxy => ProxyState is ProxyState.Stopped or ProxyState.Faulted;
+    public bool CanStopProxy => ProxyState == ProxyState.Running;
 
     partial void OnDomainFilterChanged(string value) => ApplyFilter();
-
     partial void OnNewestFirstChanged(bool value) => ApplyFilter();
+
+    partial void OnProxyStateChanged(ProxyState value)
+    {
+        OnPropertyChanged(nameof(ProxyStatus));
+        OnPropertyChanged(nameof(CanStartProxy));
+        OnPropertyChanged(nameof(CanStopProxy));
+        StartProxyCommand.NotifyCanExecuteChanged();
+        StopProxyCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnErrorMessageChanged(string? value) => OnPropertyChanged(nameof(HasError));
+
+    [RelayCommand(CanExecute = nameof(CanStartProxy))]
+    private async Task StartProxyAsync()
+    {
+        ErrorMessage = null;
+        await _proxyEngine.StartAsync();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanStopProxy))]
+    private async Task StopProxyAsync() => await _proxyEngine.StopAsync();
 
     [RelayCommand]
     private void ClearDomainFilter() => DomainFilter = string.Empty;
@@ -64,47 +88,75 @@ public sealed partial class MainViewModel : ViewModelBase
         NotifyCollectionSummaryChanged();
     }
 
-    [RelayCommand]
-    private void AddSample()
+    public async ValueTask DisposeAsync()
     {
-        var sample = CreateNewSample(++_sampleSequence);
-        _allSessions.Add(sample);
+        if (_disposed) return;
+        _disposed = true;
+        _proxyEngine.CaptureReceived -= OnCaptureReceived;
+        _proxyEngine.StateChanged -= OnProxyStateChanged;
+        await _proxyEngine.DisposeAsync();
+    }
 
-        if (MatchesFilter(sample))
+    private void OnCaptureReceived(object? sender, ProxyCaptureUpdate update) =>
+        _ = _dispatcher.InvokeAsync(() => ApplyCaptureUpdate(update));
+
+    private void OnProxyStateChanged(object? sender, ProxyStateChanged update) =>
+        _ = _dispatcher.InvokeAsync(() =>
         {
-            if (NewestFirst)
-            {
-                Sessions.Insert(0, sample);
-            }
-            else
-            {
-                Sessions.Add(sample);
-            }
+            ProxyState = update.State;
+            ErrorMessage = update.ErrorMessage;
+        });
 
-            VisibleSessionAdded?.Invoke(this, sample);
+    private void ApplyCaptureUpdate(ProxyCaptureUpdate update)
+    {
+        if (update.Kind == CaptureUpdateKind.Updated) ReplaceSession(update.Session);
+        else AddSession(update.Session);
+    }
+
+    private void AddSession(CapturedSession session)
+    {
+        _allSessions.Add(session);
+        if (_allSessions.Count > SessionLimit)
+        {
+            var expired = _allSessions[0];
+            _allSessions.RemoveAt(0);
+            var visibleExpired = Sessions.FirstOrDefault(item => item.Id == expired.Id);
+            if (visibleExpired is not null) Sessions.Remove(visibleExpired);
+        }
+
+        if (MatchesFilter(session))
+        {
+            if (NewestFirst) Sessions.Insert(0, session);
+            else Sessions.Add(session);
+            SelectedSession ??= session;
+            VisibleSessionAdded?.Invoke(this, session);
         }
 
         NotifyCollectionSummaryChanged();
+    }
+
+    private void ReplaceSession(CapturedSession session)
+    {
+        var allIndex = _allSessions.FindIndex(item => item.Id == session.Id);
+        if (allIndex < 0) return;
+        _allSessions[allIndex] = session;
+
+        var visible = Sessions.FirstOrDefault(item => item.Id == session.Id);
+        if (visible is null) return;
+        var visibleIndex = Sessions.IndexOf(visible);
+        var wasSelected = SelectedSession?.Id == session.Id;
+        Sessions[visibleIndex] = session;
+        if (wasSelected) SelectedSession = session;
     }
 
     private void ApplyFilter()
     {
         var selectedId = SelectedSession?.Id;
         Sessions.Clear();
-
-        var matchingSessions = _allSessions.Where(MatchesFilter);
-        if (NewestFirst)
-        {
-            matchingSessions = matchingSessions.Reverse();
-        }
-
-        foreach (var session in matchingSessions)
-        {
-            Sessions.Add(session);
-        }
-
-        SelectedSession = Sessions.FirstOrDefault(session => session.Id == selectedId)
-            ?? Sessions.FirstOrDefault();
+        var matching = _allSessions.Where(MatchesFilter);
+        if (NewestFirst) matching = matching.Reverse();
+        foreach (var session in matching) Sessions.Add(session);
+        SelectedSession = Sessions.FirstOrDefault(session => session.Id == selectedId) ?? Sessions.FirstOrDefault();
         NotifyCollectionSummaryChanged();
     }
 
@@ -116,48 +168,5 @@ public sealed partial class MainViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(SessionCountText));
         OnPropertyChanged(nameof(HasSessions));
-    }
-
-    private static IEnumerable<CapturedSession> CreateInitialSamples()
-    {
-        var now = DateTimeOffset.Now;
-
-        yield return new CapturedSession(
-            Guid.NewGuid(), now.AddSeconds(-8), "GET", 200, "api.example.com",
-            "https://api.example.com/v1/profile",
-            "Accept: application/json\nAuthorization: Bearer ••••••••\nUser-Agent: SignInToSniff.Demo/1.0",
-            "No request body",
-            "Content-Type: application/json; charset=utf-8\nContent-Encoding: br\nCache-Control: no-store",
-            "{\n  \"id\": 42,\n  \"displayName\": \"Ada Example\",\n  \"plan\": \"developer\"\n}", 184);
-
-        yield return new CapturedSession(
-            Guid.NewGuid(), now.AddSeconds(-5), "POST", 201, "auth.example.com",
-            "https://auth.example.com/oauth/token",
-            "Content-Type: application/json\nAccept: application/json",
-            "{\n  \"grant_type\": \"client_credentials\"\n}",
-            "Content-Type: application/json\nCache-Control: no-store",
-            "{\n  \"access_token\": \"••••••••\",\n  \"expires_in\": 3600\n}", 327);
-
-        yield return new CapturedSession(
-            Guid.NewGuid(), now.AddSeconds(-2), "GET", 404, "cdn.example.net",
-            "https://cdn.example.net/assets/avatar.png",
-            "Accept: image/avif,image/webp,*/*",
-            "No request body",
-            "Content-Type: application/json\nContent-Length: 34",
-            "{\n  \"error\": \"asset not found\"\n}", 76);
-    }
-
-    private static CapturedSession CreateNewSample(int sequence)
-    {
-        var status = sequence % 4 == 0 ? 500 : 200;
-        var host = sequence % 2 == 0 ? "api.example.com" : "telemetry.example.dev";
-
-        return new CapturedSession(
-            Guid.NewGuid(), DateTimeOffset.Now, sequence % 3 == 0 ? "POST" : "GET", status, host,
-            $"https://{host}/demo/requests/{sequence}",
-            "Accept: application/json\nX-Demo-Traffic: true",
-            sequence % 3 == 0 ? $"{{\n  \"sequence\": {sequence}\n}}" : "No request body",
-            "Content-Type: application/json; charset=utf-8",
-            $"{{\n  \"demo\": true,\n  \"sequence\": {sequence}\n}}", 40 + sequence);
     }
 }

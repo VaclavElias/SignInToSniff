@@ -70,15 +70,15 @@
             <TextBlock Classes="muted" FontSize="12" Text="Local HTTP(S) traffic inspector" />
           </StackPanel>
           <Border Margin="14,0,0,0" Padding="9,4" CornerRadius="12" Background="#FFF2D6">
-            <TextBlock Text="●  Proxy offline" Foreground="#805A00" FontSize="12" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding ProxyStatus}" Foreground="#805A00" FontSize="12" FontWeight="SemiBold" />
           </Border>
           <TextBlock Classes="muted" Text="127.0.0.1:8000" VerticalAlignment="Center" />
         </StackPanel>
 
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
           <Button Content="Certificate" IsEnabled="False" ToolTip.Tip="Certificate controls arrive in milestone 4." />
-          <Button Content="Stop" IsEnabled="False" />
-          <Button Classes="primary" Content="Start Proxy" IsEnabled="False" ToolTip.Tip="Live proxy startup arrives in milestone 2." />
+          <Button Content="Stop" Command="{Binding StopProxyCommand}" />
+          <Button Classes="primary" Content="Start Proxy" Command="{Binding StartProxyCommand}" />
         </StackPanel>
       </Grid>
     </Border>
@@ -89,8 +89,11 @@
         <TextBox Grid.Column="1" Text="{Binding DomainFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="example.com" />
         <Button Grid.Column="3" Content="×" Command="{Binding ClearDomainFilterCommand}" ToolTip.Tip="Clear domain filter" Padding="10,4" />
         <ToggleSwitch Grid.Column="5" IsChecked="{Binding AutoScroll}" Content="Auto-scroll to newest" VerticalAlignment="Center" />
-        <TextBlock Grid.Column="6" Classes="muted" Text="{Binding SessionCountText}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,16,0" />
-        <Button Grid.Column="7" Content="＋ Add demo request" Command="{Binding AddSampleCommand}" />
+        <StackPanel Grid.Column="6" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,16,0">
+          <TextBlock Classes="muted" Text="{Binding SessionCountText}" HorizontalAlignment="Right" />
+          <TextBlock Text="{Binding ErrorMessage}" Foreground="#A8262D" FontSize="11" IsVisible="{Binding HasError}" />
+        </StackPanel>
+        <TextBlock Grid.Column="7" Classes="muted" Text="HTTP proxy: 127.0.0.1:8000" VerticalAlignment="Center" />
         <Button Grid.Column="9" Classes="danger" Content="🗑  Clear logs" Command="{Binding ClearLogsCommand}" />
       </Grid>
     </Border>
@@ -138,7 +141,7 @@
         <Grid>
           <StackPanel IsVisible="{Binding !HasSessions}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
             <TextBlock Text="No captured requests" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
-            <TextBlock Classes="muted" Text="Add demo traffic or clear the domain filter." />
+            <TextBlock Classes="muted" Text="Start the proxy, then configure an HTTP client for 127.0.0.1:8000." />
           </StackPanel>
 
           <Grid IsVisible="{Binding HasSessions}" RowDefinitions="Auto,12,*">
