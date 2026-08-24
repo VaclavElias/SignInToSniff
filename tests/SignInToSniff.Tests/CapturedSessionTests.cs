@@ -34,6 +34,23 @@ public sealed class CapturedSessionTests
         Assert.False(session.HasResponseJson);
     }
 
+    [Theory]
+    [InlineData("application/x-www-form-urlencoded")]
+    [InlineData("multipart/form-data; boundary=test")]
+    public void FormViewer_IsSelectedForSupportedFormMediaTypes(string contentType)
+    {
+        var session = CreateSession() with
+        {
+            RequestContentType = contentType,
+            ResponseContentType = contentType
+        };
+
+        Assert.True(session.HasRequestForm);
+        Assert.True(session.HasResponseForm);
+        Assert.False(session.HasRequestPlainBody);
+        Assert.False(session.HasResponsePlainBody);
+    }
+
     private static CapturedSession CreateSession() => new(
         Guid.NewGuid(), DateTimeOffset.Now, "GET", 200, "example.com", "https://example.com/data",
         string.Empty, "{}", string.Empty, "{}", 1);

@@ -273,10 +273,14 @@
                     </Grid>
                     <Grid Grid.Row="1">
                       <TextBox Classes="payload" Text="{Binding SelectedSession.RequestBody}"
-                               IsVisible="{Binding !SelectedSession.HasRequestJson}"
+                               IsVisible="{Binding SelectedSession.HasRequestPlainBody}"
                                IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" />
                       <views:JsonBodyViewer Body="{Binding SelectedSession.RequestBody}"
                                             IsVisible="{Binding SelectedSession.HasRequestJson}" />
+                      <views:FormBodyViewer Body="{Binding SelectedSession.RequestBody}"
+                                            ContentType="{Binding SelectedSession.RequestContentType}"
+                                            MultipartBytes="{Binding SelectedSession.RequestFormBytes}"
+                                            IsVisible="{Binding SelectedSession.HasRequestForm}" />
                     </Grid>
                   </Grid>
                 </Grid>
@@ -307,12 +311,16 @@
                       <Grid IsVisible="{Binding !SelectedSession.HasImagePreview}">
                         <TextBox Classes="payload"
                                  Text="{Binding SelectedSession.ResponseBody}"
-                                 IsVisible="{Binding !SelectedSession.HasResponseJson}"
+                                 IsVisible="{Binding SelectedSession.HasResponsePlainBody}"
                                  IsReadOnly="True"
                                  AcceptsReturn="True"
                                  TextWrapping="NoWrap" />
                         <views:JsonBodyViewer Body="{Binding SelectedSession.ResponseBody}"
                                               IsVisible="{Binding SelectedSession.HasResponseJson}" />
+                        <views:FormBodyViewer Body="{Binding SelectedSession.ResponseBody}"
+                                              ContentType="{Binding SelectedSession.ResponseContentType}"
+                                              MultipartBytes="{Binding SelectedSession.ResponseFormBytes}"
+                                              IsVisible="{Binding SelectedSession.HasResponseForm}" />
                       </Grid>
                       <Border IsVisible="{Binding SelectedSession.HasImagePreview}"
                               Background="#F4F6F9"

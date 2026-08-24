@@ -215,6 +215,7 @@ public sealed class TitaniumProxyEngine : IProxyEngine
         {
             Protocol = FormatProtocol(request.HttpVersion),
             RequestContentType = requestBody.ContentType,
+            RequestFormBytes = requestBody.FormBytes,
             ReceivedBytes = GetCapturedSize(formattedHeaders, request.ContentLength, requestBody.ByteCount)
         };
 
@@ -249,6 +250,7 @@ public sealed class TitaniumProxyEngine : IProxyEngine
             Protocol = FormatProtocol(response.HttpVersion),
             SentBytes = GetCapturedSize(formattedHeaders, response.ContentLength, responseBody.ByteCount),
             ResponseImageBytes = responseBody.ImageBytes,
+            ResponseFormBytes = responseBody.FormBytes,
             ResponseContentType = responseBody.ContentType,
             DurationMilliseconds = state.Stopwatch.ElapsedMilliseconds
         };
@@ -316,6 +318,36 @@ public sealed class TitaniumProxyEngine : IProxyEngine
             catch (Exception exception)
             {
                 return new BodyCaptureResult($"[Image preview capture failed: {exception.Message}]", null);
+            }
+        }
+        if (mediaType == "multipart/form-data")
+        {
+            if (contentLength > BodyCaptureFormatter.MaxCapturedBodyBytes)
+            {
+                return new BodyCaptureResult(
+                    $"[Multipart form body omitted: declared size {contentLength:N0} bytes exceeds the 1 MiB capture limit.]",
+                    contentLength,
+                    ContentType: mediaType);
+            }
+            try
+            {
+                var formBytes = await readBody(CancellationToken.None).ConfigureAwait(false);
+                if (formBytes.Length > BodyCaptureFormatter.MaxCapturedBodyBytes)
+                {
+                    return new BodyCaptureResult(
+                        "[Multipart form body omitted: captured data exceeds the 1 MiB limit.]",
+                        formBytes.LongLength,
+                        ContentType: mediaType);
+                }
+                return new BodyCaptureResult(
+                    System.Text.Encoding.UTF8.GetString(formBytes),
+                    formBytes.LongLength,
+                    ContentType: contentType,
+                    FormBytes: formBytes);
+            }
+            catch (Exception exception)
+            {
+                return new BodyCaptureResult($"[Multipart form capture failed: {exception.Message}]", null, ContentType: mediaType);
             }
         }
         if (!BodyCaptureFormatter.ShouldRead(contentType, contentLength, out var omissionReason))
@@ -418,7 +450,8 @@ public sealed class TitaniumProxyEngine : IProxyEngine
         string Text,
         long? ByteCount,
         byte[]? ImageBytes = null,
-        string? ContentType = null);
+        string? ContentType = null,
+        byte[]? FormBytes = null);
 
     private static ProxyServer CreateProxyServer()
     {

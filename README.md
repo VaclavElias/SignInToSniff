@@ -20,7 +20,7 @@ dotnet run --project src/SignInToSniff/SignInToSniff.csproj
 1. Launch SignInToSniff and click **Start Proxy**.
 2. Open **Intercept** and choose a client, or configure your own HTTP client to use `127.0.0.1:8000`.
 3. Browse or send requests to an `http://` address.
-4. Select a captured request to inspect its URL, headers, body, status, response size, and duration. JSON request and response bodies provide selectable syntax-coloured, collapsible tree, and raw views. Small image responses are rendered directly in the Response Body pane.
+4. Select a captured request to inspect its URL, headers, body, status, response size, and duration. JSON request and response bodies provide selectable syntax-coloured, collapsible tree, and raw views. URL-encoded and multipart form bodies provide decoded field tables plus raw views. Small image responses are rendered directly in the Response Body pane.
 5. Use global search, ordering options, auto-scroll, and the draggable Headers/Body splitter as needed. Search terms are combined with AND, so `google.com POST json` requires all three terms to match across the enabled fields. Use the search cog to include or exclude host, URL, file extension, method/status, headers, bodies, or metadata; its adaptive **Select all/Deselect all** action changes every scope at once. Select only **File extension** to find resources such as `JPG` regardless of letter case; query-string values are ignored for this scope.
 6. Use the three-dot menu beside either Body heading to copy or download the displayed body. Image downloads preserve the original response bytes and use an extension based on the response content type.
 7. Right-click a captured request to delete it, exclude its exact host, or exclude its site domain and all subdomains.
@@ -90,6 +90,12 @@ Text body capture is limited to 1 MiB per request or response. Image responses w
 13. From Fresh Terminal, send a small HTTP POST and confirm its payload appears under **Request -> Body**.
 14. Visit a direct PNG or JPEG URL smaller than 1 MiB, select its request, and confirm the image appears under **Response -> Body**. Use its three-dot menu to download the original image.
 15. Send or receive an `application/json` or `application/*+json` body. Confirm the Body pane offers **Syntax**, **Tree**, and **Raw** tabs; expand nested tree nodes and verify strings, numbers, booleans, and null values are distinguishable.
+16. From Fresh Terminal, send URL-encoded and multipart forms and confirm **Fields** shows decoded, repeated values and uploaded-file metadata while **Raw** preserves the captured payload:
+
+```powershell
+curl.exe https://httpbin.org/post -d "name=SignInToSniff&tag=proxy&tag=C%23+Avalonia"
+curl.exe https://httpbin.org/post -F "description=viewer test" -F "upload=hello from SignInToSniff;filename=sample.txt;type=text/plain"
+```
 
 The disabled Main Chrome option is reserved for a later implementation that must show a confirmation before closing or relaunching the normal profile.
 
@@ -100,4 +106,4 @@ dotnet build SignInToSniff.slnx
 dotnet test --project tests/SignInToSniff.Tests/SignInToSniff.Tests.csproj
 ```
 
-The current prototype includes HTTPS diagnostics, persistent passthrough rules, bounded image-response previews, and JSON syntax/tree viewers. Form data, HTML/XML, and binary metadata viewers are the next content-viewer stages.
+The current prototype includes HTTPS diagnostics, persistent passthrough rules, bounded image-response previews, JSON syntax/tree viewers, and URL-encoded/multipart form viewers. HTML/XML and binary metadata viewers are the next content-viewer stages.

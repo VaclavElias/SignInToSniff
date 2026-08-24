@@ -19,6 +19,8 @@ public sealed record CapturedSession(
     public long SentBytes { get; init; }
     public string? ProxyError { get; init; }
     public byte[]? ResponseImageBytes { get; init; }
+    public byte[]? RequestFormBytes { get; init; }
+    public byte[]? ResponseFormBytes { get; init; }
     public string? RequestContentType { get; init; }
     public string? ResponseContentType { get; init; }
 
@@ -44,6 +46,14 @@ public sealed record CapturedSession(
 
     public bool HasResponseJson => !HasImagePreview && IsJsonContentType(ResponseContentType);
 
+    public bool HasRequestForm => IsFormContentType(RequestContentType);
+
+    public bool HasResponseForm => !HasImagePreview && IsFormContentType(ResponseContentType);
+
+    public bool HasRequestPlainBody => !HasRequestJson && !HasRequestForm;
+
+    public bool HasResponsePlainBody => !HasImagePreview && !HasResponseJson && !HasResponseForm;
+
     public string StartedAtText => StartedAt.ToLocalTime().ToString("HH:mm:ss");
 
     public string SiteDomain
@@ -63,5 +73,12 @@ public sealed record CapturedSession(
         var mediaType = (contentType ?? string.Empty).Split(';', 2)[0].Trim();
         return mediaType.Equals("application/json", StringComparison.OrdinalIgnoreCase) ||
                mediaType.EndsWith("+json", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsFormContentType(string? contentType)
+    {
+        var mediaType = (contentType ?? string.Empty).Split(';', 2)[0].Trim();
+        return mediaType.Equals("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase) ||
+               mediaType.Equals("multipart/form-data", StringComparison.OrdinalIgnoreCase);
     }
 }
