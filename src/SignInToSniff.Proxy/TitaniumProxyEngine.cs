@@ -126,10 +126,17 @@ public sealed class TitaniumProxyEngine : IProxyEngine
         _lifecycleLock.Dispose();
     }
 
-    private Task OnBeforeRequestAsync(object sender, SessionEventArgs eventArgs)
+    private async Task OnBeforeRequestAsync(object sender, SessionEventArgs eventArgs)
     {
         var request = eventArgs.HttpClient.Request;
         var uri = request.RequestUri;
+        var headers = request.Headers.Select(header => header.ToString()).ToArray();
+        var requestBody = await CaptureBodyAsync(
+            request.HasBody,
+            request.ContentLength,
+            BodyCaptureFormatter.FindHeader(headers, "Content-Type"),
+            eventArgs.GetRequestBody,
+            "request").ConfigureAwait(false);
         var session = new CapturedSession(
             Guid.NewGuid(),
             DateTimeOffset.Now,
@@ -137,35 +144,64 @@ public sealed class TitaniumProxyEngine : IProxyEngine
             null,
             uri.Host,
             request.Url,
-            FormatHeaders(request.Headers.Select(header => header.ToString())),
-            "Body capture arrives in milestone 3.",
+            FormatHeaders(headers),
+            requestBody,
             "Waiting for response…",
-            "Body capture arrives in milestone 3.",
+            "Waiting for response body…",
             null);
 
         eventArgs.HttpClient.UserData = new CaptureState(session, Stopwatch.StartNew());
         _updates.Writer.TryWrite(new ProxyCaptureUpdate(CaptureUpdateKind.Added, session));
-        return Task.CompletedTask;
     }
 
-    private Task OnBeforeResponseAsync(object sender, SessionEventArgs eventArgs)
+    private async Task OnBeforeResponseAsync(object sender, SessionEventArgs eventArgs)
     {
         if (eventArgs.HttpClient.UserData is not CaptureState state)
         {
-            return Task.CompletedTask;
+            return;
         }
 
         state.Stopwatch.Stop();
         var response = eventArgs.HttpClient.Response;
+        var headers = response.Headers.Select(header => header.ToString()).ToArray();
+        var responseBody = await CaptureBodyAsync(
+            response.HasBody,
+            response.ContentLength,
+            BodyCaptureFormatter.FindHeader(headers, "Content-Type"),
+            eventArgs.GetResponseBody,
+            "response").ConfigureAwait(false);
         var completed = state.Session with
         {
             StatusCode = response.StatusCode,
-            ResponseHeaders = FormatHeaders(response.Headers.Select(header => header.ToString())),
+            ResponseHeaders = FormatHeaders(headers),
+            ResponseBody = responseBody,
             DurationMilliseconds = state.Stopwatch.ElapsedMilliseconds
         };
 
         _updates.Writer.TryWrite(new ProxyCaptureUpdate(CaptureUpdateKind.Updated, completed));
-        return Task.CompletedTask;
+    }
+
+    private static async Task<string> CaptureBodyAsync(
+        bool hasBody,
+        long contentLength,
+        string? contentType,
+        Func<CancellationToken, Task<byte[]>> readBody,
+        string direction)
+    {
+        if (!hasBody) return $"No {direction} body";
+        if (!BodyCaptureFormatter.ShouldRead(contentType, contentLength, out var omissionReason)) return omissionReason!;
+
+        try
+        {
+            var body = await readBody(CancellationToken.None).ConfigureAwait(false);
+            // Titanium exposes a decoded inspection buffer even though the original
+            // Content-Encoding header remains present on the proxied response.
+            return BodyCaptureFormatter.Format(body, contentType, contentEncoding: null);
+        }
+        catch (Exception exception)
+        {
+            return $"[{char.ToUpperInvariant(direction[0])}{direction[1..]} body capture failed: {exception.Message}]";
+        }
     }
 
     private async Task PumpUpdatesAsync(CancellationToken cancellationToken)

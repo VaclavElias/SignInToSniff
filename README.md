@@ -2,9 +2,9 @@
 
 SignInToSniff is a staged, cross-platform desktop HTTP(S) traffic inspector built with .NET and Avalonia.
 
-## Current milestone: HTTP metadata capture
+## Current milestone: HTTP body capture
 
-The app can deliberately start an HTTP proxy on `127.0.0.1:8000` and display request/response metadata and headers. It never changes system proxy settings. **HTTPS decryption, body capture, and certificate changes are not enabled yet.**
+The app can deliberately start an HTTP proxy on `127.0.0.1:8000` and display request/response metadata, headers, and bounded text bodies. JSON is formatted for readability, and gzip, Brotli, and deflate response bodies are decoded for display. It never changes system proxy settings. **HTTPS decryption and certificate changes are not enabled yet.**
 
 ### Run
 
@@ -20,7 +20,7 @@ dotnet run --project src/SignInToSniff/SignInToSniff.csproj
 1. Launch SignInToSniff and click **Start Proxy**.
 2. Open **Intercept** and choose a client, or configure your own HTTP client to use `127.0.0.1:8000`.
 3. Browse or send requests to an `http://` address.
-4. Select a captured request to inspect its URL, headers, status, and duration.
+4. Select a captured request to inspect its URL, headers, body, status, and duration.
 5. Use the domain filter, ordering options, auto-scroll toggle, and draggable Headers/Body splitter as needed.
 6. Click **Stop** when finished.
 
@@ -46,7 +46,7 @@ Set the client's HTTP proxy to `http://127.0.0.1:8000`. For example, from a regu
 Invoke-WebRequest http://example.com -Proxy http://127.0.0.1:8000
 ```
 
-This milestone captures unencrypted HTTP only. SignInToSniff does not modify the Windows system proxy, and clients will lose proxy connectivity if they remain configured after SignInToSniff stops.
+This milestone captures unencrypted HTTP only. Text body capture is limited to 1 MiB per request or response; known binary, streaming, and oversized bodies are intentionally omitted. SignInToSniff does not modify the Windows system proxy, and clients will lose proxy connectivity if they remain configured after SignInToSniff stops.
 
 ### Manual verification
 
@@ -61,6 +61,8 @@ This milestone captures unencrypted HTTP only. SignInToSniff does not modify the
 9. With the proxy running, use **Intercept → Fresh Chrome** and confirm an isolated Chrome window opens through the proxy.
 10. Use **Intercept → Fresh Terminal** and confirm Windows Terminal opens its default profile; tools launched there inherit temporary HTTP proxy variables.
 11. Drag the horizontal splitter between Headers and Body in both detail tabs and confirm either section can be expanded.
+12. Visit an HTTP page and confirm its HTML appears under **Response -> Body**.
+13. From Fresh Terminal, send a small HTTP POST and confirm its payload appears under **Request -> Body**.
 
 The disabled Main Chrome option is reserved for a later implementation that must show a confirmation before closing or relaunching the normal profile.
 
@@ -71,4 +73,4 @@ dotnet build SignInToSniff.slnx
 dotnet test tests/SignInToSniff.Tests/SignInToSniff.Tests.csproj
 ```
 
-Milestone 3 will add bounded textual request/response body capture and formatting.
+Milestone 4 will add opt-in HTTPS decryption and carefully scoped certificate management.
