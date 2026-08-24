@@ -28,4 +28,16 @@ public sealed record CapturedSession(
     };
 
     public string StartedAtText => StartedAt.ToLocalTime().ToString("HH:mm:ss");
+
+    public string SiteDomain
+    {
+        get
+        {
+            if (Uri.CheckHostName(Host) != UriHostNameType.Dns) return Host;
+            var labels = Host.TrimEnd('.').Split('.');
+            if (labels.Length <= 2) return Host;
+            var commonSecondLevel = labels[^1].Length == 2 && labels[^2] is "ac" or "co" or "com" or "gov" or "net" or "org";
+            return string.Join('.', commonSecondLevel && labels.Length >= 3 ? labels[^3..] : labels[^2..]);
+        }
+    }
 }

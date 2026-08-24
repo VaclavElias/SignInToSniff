@@ -21,6 +21,8 @@ public sealed class MainViewModelTests
 
         Assert.Single(viewModel.Sessions);
         Assert.Equal("api.example.com", viewModel.Sessions[0].Host);
+        Assert.Equal("Total captured: 2", viewModel.TotalCapturedText);
+        Assert.Equal("Hidden: 1", viewModel.HiddenRequestsText);
     }
 
     [Fact]
@@ -118,6 +120,57 @@ public sealed class MainViewModelTests
         Assert.Equal(string.Empty, viewModel.DomainFilter);
     }
 
+    [Fact]
+    public async Task DomainExclusion_RemovesExistingAndRejectsFutureMatchingSessions()
+    {
+        var engine = new FakeProxyEngine();
+        var store = new FakeExclusionStore();
+        var viewModel = new MainViewModel(engine, new InlineUiDispatcher(), new FakeClientLauncher(), store);
+        engine.Add(CreateSession("users.google.com"));
+        engine.Add(CreateSession("example.com"));
+
+        await viewModel.ExcludeDomainAndSubdomainsAsync(viewModel.Sessions[0]);
+        engine.Add(CreateSession("mail.google.com"));
+
+        Assert.Single(viewModel.Sessions);
+        Assert.Equal("example.com", viewModel.Sessions[0].Host);
+        Assert.Single(store.SavedRules);
+        Assert.Equal("google.com", store.SavedRules[0].Domain);
+        Assert.Equal("Total captured: 3", viewModel.TotalCapturedText);
+        Assert.Equal("Hidden: 2", viewModel.HiddenRequestsText);
+        Assert.Equal("Exclusion rules: 1", viewModel.ExclusionCountText);
+    }
+
+    [Fact]
+    public void DeleteSession_RemovesOnlySelectedCapture()
+    {
+        var (viewModel, engine) = CreateViewModel();
+        engine.Add(CreateSession("one.example"));
+        engine.Add(CreateSession("two.example"));
+
+        viewModel.DeleteSession(viewModel.Sessions[0]);
+
+        Assert.Single(viewModel.Sessions);
+        Assert.Equal("two.example", viewModel.Sessions[0].Host);
+        Assert.Equal("Total captured: 1", viewModel.TotalCapturedText);
+    }
+
+    [Fact]
+    public async Task BroadDomainExclusion_SupersedesNarrowRules()
+    {
+        var engine = new FakeProxyEngine();
+        var store = new FakeExclusionStore();
+        var viewModel = new MainViewModel(engine, new InlineUiDispatcher(), new FakeClientLauncher(), store);
+
+        await viewModel.AddExclusionAsync("users.google.com", ExclusionScope.ExactHost);
+        await viewModel.AddExclusionAsync("google.com", ExclusionScope.DomainAndSubdomains);
+        await viewModel.AddExclusionAsync("mail.google.com", ExclusionScope.ExactHost);
+
+        var rule = Assert.Single(viewModel.Exclusions);
+        Assert.Equal("google.com", rule.Domain);
+        Assert.Equal(ExclusionScope.DomainAndSubdomains, rule.Scope);
+    }
+
     private static (MainViewModel ViewModel, FakeProxyEngine Engine) CreateViewModel()
     {
         var engine = new FakeProxyEngine();
@@ -184,7 +237,13 @@ public sealed class MainViewModelTests
 
     private sealed class FakeExclusionStore : IExclusionStore
     {
+        public List<ExclusionRule> SavedRules { get; } = [];
         public IReadOnlyList<ExclusionRule> Load() => [];
-        public Task SaveAsync(IReadOnlyCollection<ExclusionRule> rules, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SaveAsync(IReadOnlyCollection<ExclusionRule> rules, CancellationToken cancellationToken = default)
+        {
+            SavedRules.Clear();
+            SavedRules.AddRange(rules);
+            return Task.CompletedTask;
+        }
     }
 }

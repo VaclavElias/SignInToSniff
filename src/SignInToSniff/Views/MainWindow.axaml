@@ -51,7 +51,7 @@
     </Style>
   </Window.Styles>
 
-  <Grid RowDefinitions="Auto,Auto,Auto,*">
+  <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
     <Menu Grid.Row="0" Background="White">
       <MenuItem Header="_Intercept">
         <MenuItem Header="Fresh _Chrome" Command="{Binding LaunchFreshChromeCommand}" />
@@ -144,8 +144,22 @@
                     <ContextMenu>
                       <MenuItem Header="Delete request" Click="OnDeleteSessionClick" />
                       <Separator />
-                      <MenuItem Header="Exclude exact host" Click="OnExcludeExactHostClick" />
-                      <MenuItem Header="Exclude domain and subdomains" Click="OnExcludeSiteDomainClick" />
+                      <MenuItem Click="OnExcludeExactHostClick">
+                        <MenuItem.Header>
+                          <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="Exclude exact host:" />
+                            <TextBlock Text="{Binding Host}" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" />
+                          </StackPanel>
+                        </MenuItem.Header>
+                      </MenuItem>
+                      <MenuItem Click="OnExcludeSiteDomainClick">
+                        <MenuItem.Header>
+                          <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="Exclude domain and subdomains:" />
+                            <TextBlock Text="{Binding SiteDomain}" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" />
+                          </StackPanel>
+                        </MenuItem.Header>
+                      </MenuItem>
                     </ContextMenu>
                   </Grid.ContextMenu>
                   <TextBlock Text="{Binding Method}" Foreground="#1769E0" FontWeight="Bold" FontSize="12" VerticalAlignment="Center" />
@@ -241,5 +255,14 @@
         </Grid>
       </Border>
     </Grid>
+
+    <Border Grid.Row="4" Background="White" BorderBrush="#DDE2EA" BorderThickness="0,1,0,0" Padding="18,8">
+      <Grid ColumnDefinitions="Auto,24,Auto,24,Auto,*">
+        <TextBlock Text="{Binding TotalCapturedText}" Classes="muted" FontSize="11" />
+        <TextBlock Grid.Column="2" Text="{Binding HiddenRequestsText}" Classes="muted" FontSize="11" />
+        <TextBlock Grid.Column="4" Text="{Binding ExclusionCountText}" Classes="muted" FontSize="11" />
+        <TextBlock Grid.Column="5" Text="Memory-only session · 5,000 request retention limit" Classes="muted" FontSize="11" HorizontalAlignment="Right" />
+      </Grid>
+    </Border>
   </Grid>
 </Window>

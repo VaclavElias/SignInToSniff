@@ -23,7 +23,11 @@ dotnet run --project src/SignInToSniff/SignInToSniff.csproj
 4. Select a captured request to inspect its URL, headers, body, status, response size, and duration.
 5. Use the domain filter, ordering options, auto-scroll toggle, and draggable Headers/Body splitter as needed.
 6. Use the three-dot menu beside either Body heading to copy or download the displayed body.
-7. Click **Stop** when finished.
+7. Right-click a captured request to delete it, exclude its exact host, or exclude its site domain and all subdomains.
+8. Open **Tools -> Manage exclusions** to add, review, or remove persistent exclusion rules.
+9. Click **Stop** when finished.
+
+The full-width footer reports total requests captured during the current app session, requests hidden by the active domain filter or exclusion rules, and the number of saved exclusion rules.
 
 ### Fresh Chrome
 
@@ -38,6 +42,10 @@ Choose **Intercept -> Fresh Chrome** to open an independent Chrome window alread
 5. When HTTPS inspection is no longer wanted, stop the proxy and use the matching **Remove … trust** command. Machine-wide removal requires UAC on Windows.
 
 The generated root certificate and private key are persisted in the current user's local application-data directory so the same trusted identity is reused across restarts. Trust-store changes are never performed at startup or without the confirmation dialog.
+
+### Exclusions
+
+Exclusions hide matching traffic from the capture list; they do not block or reroute the request. **Exact host** matches only the named host. **Domain and subdomains** matches the named site domain and every host below it. Rules are stored in `SignInToSniff/exclusions.json` under the current user's local application-data directory and restored when the app starts.
 
 ### Fresh Terminal
 

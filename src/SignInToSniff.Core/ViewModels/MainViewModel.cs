@@ -18,6 +18,8 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     private readonly IClientLauncher _clientLauncher;
     private readonly IExclusionStore _exclusionStore;
     private bool _disposed;
+    private int _totalCaptured;
+    private int _excludedSessionCount;
 
     [ObservableProperty] private string _domainFilter = string.Empty;
     [ObservableProperty] private bool _autoScroll = true;
@@ -62,12 +64,16 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
     public bool CanStartProxy => ProxyState is ProxyState.Stopped or ProxyState.Faulted;
     public bool CanStopProxy => ProxyState == ProxyState.Running;
+    public string TotalCapturedText => $"Total captured: {_totalCaptured:N0}";
+    public string HiddenRequestsText => $"Hidden: {_excludedSessionCount + Math.Max(0, _allSessions.Count - Sessions.Count):N0}";
+    public string ExclusionCountText => $"Exclusion rules: {Exclusions.Count:N0}";
 
     public void DeleteSession(CapturedSession session)
     {
-        _allSessions.RemoveAll(item => item.Id == session.Id);
+        var removed = _allSessions.RemoveAll(item => item.Id == session.Id) > 0;
         var visible = Sessions.FirstOrDefault(item => item.Id == session.Id);
         if (visible is not null) Sessions.Remove(visible);
+        if (removed && _totalCaptured > 0) _totalCaptured--;
         if (SelectedSession?.Id == session.Id) SelectedSession = Sessions.FirstOrDefault();
         NotifyCollectionSummaryChanged();
     }
@@ -76,22 +82,35 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
         AddExclusionAsync(session.Host, ExclusionScope.ExactHost);
 
     public Task ExcludeDomainAndSubdomainsAsync(CapturedSession session) =>
-        AddExclusionAsync(GetSiteDomain(session.Host), ExclusionScope.DomainAndSubdomains);
+        AddExclusionAsync(session.SiteDomain, ExclusionScope.DomainAndSubdomains);
 
     public async Task AddExclusionAsync(string domain, ExclusionScope scope)
     {
         var normalized = NormalizeDomain(domain);
         if (normalized.Length == 0) return;
         var rule = new ExclusionRule(normalized, scope);
+        if (scope == ExclusionScope.ExactHost && Exclusions.Any(existing =>
+                existing.Scope == ExclusionScope.DomainAndSubdomains && existing.Matches(normalized)))
+        {
+            return;
+        }
+        if (scope == ExclusionScope.DomainAndSubdomains)
+        {
+            for (var index = Exclusions.Count - 1; index >= 0; index--)
+            {
+                if (rule.Matches(Exclusions[index].Domain)) Exclusions.RemoveAt(index);
+            }
+        }
         if (!Exclusions.Contains(rule)) Exclusions.Add(rule);
         RemoveExcludedSessions();
-        await _exclusionStore.SaveAsync(Exclusions);
+        await PersistExclusionsAsync();
     }
 
     public async Task RemoveExclusionAsync(ExclusionRule rule)
     {
         Exclusions.Remove(rule);
-        await _exclusionStore.SaveAsync(Exclusions);
+        NotifyCollectionSummaryChanged();
+        await PersistExclusionsAsync();
     }
 
     public async Task<CertificateOperationResult> InstallCertificateAsync(bool machineWide)
@@ -158,6 +177,8 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     {
         _allSessions.Clear();
         Sessions.Clear();
+        _totalCaptured = 0;
+        _excludedSessionCount = 0;
         SelectedSession = null;
         NotifyCollectionSummaryChanged();
     }
@@ -189,7 +210,13 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
 
     private void AddSession(CapturedSession session)
     {
-        if (IsExcluded(session.Host)) return;
+        _totalCaptured++;
+        if (IsExcluded(session.Host))
+        {
+            _excludedSessionCount++;
+            NotifyCollectionSummaryChanged();
+            return;
+        }
         _allSessions.Add(session);
         if (_allSessions.Count > SessionLimit)
         {
@@ -243,6 +270,8 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
 
     private void RemoveExcludedSessions()
     {
+        var removedCount = _allSessions.Count(session => IsExcluded(session.Host));
+        _excludedSessionCount += removedCount;
         _allSessions.RemoveAll(session => IsExcluded(session.Host));
         for (var index = Sessions.Count - 1; index >= 0; index--)
         {
@@ -259,19 +288,25 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
         return Uri.CheckHostName(value) == UriHostNameType.Unknown ? string.Empty : value;
     }
 
-    private static string GetSiteDomain(string host)
+    private async Task PersistExclusionsAsync()
     {
-        if (Uri.CheckHostName(host) != UriHostNameType.Dns) return host;
-        var labels = host.TrimEnd('.').Split('.');
-        if (labels.Length <= 2) return host;
-        var commonSecondLevel = labels[^1].Length == 2 && labels[^2] is "ac" or "co" or "com" or "gov" or "net" or "org";
-        return string.Join('.', commonSecondLevel && labels.Length >= 3 ? labels[^3..] : labels[^2..]);
+        try
+        {
+            await _exclusionStore.SaveAsync(Exclusions);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            ErrorMessage = $"Could not save exclusions: {exception.Message}";
+        }
     }
 
     private void NotifyCollectionSummaryChanged()
     {
         OnPropertyChanged(nameof(SessionCountText));
         OnPropertyChanged(nameof(HasSessions));
+        OnPropertyChanged(nameof(TotalCapturedText));
+        OnPropertyChanged(nameof(HiddenRequestsText));
+        OnPropertyChanged(nameof(ExclusionCountText));
     }
 
     private async Task ApplyLaunchResultAsync(Task<ClientLaunchResult> launchTask)
