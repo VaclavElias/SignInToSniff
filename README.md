@@ -21,7 +21,7 @@ dotnet run --project src/SignInToSniff/SignInToSniff.csproj
 2. Open **Intercept** and choose a client, or configure your own HTTP client to use `127.0.0.1:8000`.
 3. Browse or send requests to an `http://` address.
 4. Select a captured request to inspect its URL, headers, body, status, response size, and duration.
-5. Use the domain filter, ordering options, auto-scroll toggle, and draggable Headers/Body splitter as needed.
+5. Use global search, ordering options, auto-scroll, and the draggable Headers/Body splitter as needed. Search terms are combined with AND, so `google.com POST json` requires all three terms to match across the enabled fields. Use the search cog to include or exclude host, URL, method/status, headers, bodies, or metadata.
 6. Use the three-dot menu beside either Body heading to copy or download the displayed body.
 7. Right-click a captured request to delete it, exclude its exact host, or exclude its site domain and all subdomains.
 8. Open **Tools -> Manage exclusions** to add, review, or remove persistent exclusion rules.

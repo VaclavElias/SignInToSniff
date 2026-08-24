@@ -105,17 +105,31 @@
     </Border>
 
     <Border Grid.Row="2" Background="White" BorderBrush="#DDE2EA" BorderThickness="0,0,0,1" Padding="20,12">
-      <Grid ColumnDefinitions="Auto,280,8,Auto,22,Auto,*,Auto,8,Auto">
-        <TextBlock Text="Filter by domain" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0" />
-        <TextBox Grid.Column="1" Text="{Binding DomainFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="example.com" />
-        <Button Grid.Column="3" Content="×" Command="{Binding ClearDomainFilterCommand}" ToolTip.Tip="Clear domain filter" Padding="10,4" />
-        <ToggleSwitch Grid.Column="5" IsChecked="{Binding AutoScroll}" Content="Auto-scroll to newest" VerticalAlignment="Center" />
-        <StackPanel Grid.Column="6" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,16,0">
+      <Grid ColumnDefinitions="Auto,390,22,Auto,*,Auto,8,Auto">
+        <TextBlock Text="Search requests" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0" />
+        <Grid Grid.Column="1" ColumnDefinitions="*,Auto,Auto">
+          <TextBox Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="google.com POST json" />
+          <Button Grid.Column="1" Content="×" Command="{Binding ClearSearchCommand}" ToolTip.Tip="Clear search" Padding="10,4" Margin="4,0,0,0" />
+          <Button Grid.Column="2" Content="⚙" ToolTip.Tip="Choose searchable fields" Padding="10,4" Margin="4,0,0,0">
+            <Button.Flyout>
+              <MenuFlyout Placement="BottomEdgeAlignedRight">
+                <MenuItem Header="Host" ToggleType="CheckBox" IsChecked="{Binding SearchHost, Mode=TwoWay}" />
+                <MenuItem Header="URL" ToggleType="CheckBox" IsChecked="{Binding SearchUrl, Mode=TwoWay}" />
+                <MenuItem Header="Method and status" ToggleType="CheckBox" IsChecked="{Binding SearchMethodStatus, Mode=TwoWay}" />
+                <MenuItem Header="Request and response headers" ToggleType="CheckBox" IsChecked="{Binding SearchHeaders, Mode=TwoWay}" />
+                <MenuItem Header="Request and response bodies" ToggleType="CheckBox" IsChecked="{Binding SearchBodies, Mode=TwoWay}" />
+                <MenuItem Header="Size, duration, and time" ToggleType="CheckBox" IsChecked="{Binding SearchMetadata, Mode=TwoWay}" />
+              </MenuFlyout>
+            </Button.Flyout>
+          </Button>
+        </Grid>
+        <ToggleSwitch Grid.Column="3" IsChecked="{Binding AutoScroll}" Content="Auto-scroll to newest" VerticalAlignment="Center" />
+        <StackPanel Grid.Column="4" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,16,0">
           <TextBlock Classes="muted" Text="{Binding SessionCountText}" HorizontalAlignment="Right" />
           <TextBlock Text="{Binding ErrorMessage}" Foreground="#A8262D" FontSize="11" IsVisible="{Binding HasError}" />
         </StackPanel>
-        <TextBlock Grid.Column="7" Classes="muted" Text="HTTP proxy: 127.0.0.1:8000" VerticalAlignment="Center" />
-        <Button Grid.Column="9" Classes="danger" Content="🗑  Clear logs" Command="{Binding ClearLogsCommand}" />
+        <TextBlock Grid.Column="5" Classes="muted" Text="HTTP proxy: 127.0.0.1:8000" VerticalAlignment="Center" />
+        <Button Grid.Column="7" Classes="danger" Content="🗑  Clear logs" Command="{Binding ClearLogsCommand}" />
       </Grid>
     </Border>
 

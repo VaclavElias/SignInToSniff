@@ -11,13 +11,14 @@ namespace SignInToSniff.Tests;
 public sealed class MainViewModelTests
 {
     [Fact]
-    public void DomainFilter_MatchesHostCaseInsensitively()
+    public async Task GlobalSearch_MatchesHostCaseInsensitively()
     {
         var (viewModel, engine) = CreateViewModel();
         engine.Add(CreateSession("api.example.com"));
         engine.Add(CreateSession("cdn.example.net"));
 
-        viewModel.DomainFilter = "API.EXAMPLE.COM";
+        viewModel.SearchQuery = "API.EXAMPLE.COM";
+        await Task.Delay(300);
 
         Assert.Single(viewModel.Sessions);
         Assert.Equal("api.example.com", viewModel.Sessions[0].Host);
@@ -107,17 +108,56 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
-    public void ClearDomainFilter_RestoresAllSessions()
+    public async Task ClearSearch_RestoresAllSessions()
     {
         var (viewModel, engine) = CreateViewModel();
         engine.Add(CreateSession("api.example.com"));
         engine.Add(CreateSession("cdn.example.net"));
-        viewModel.DomainFilter = "api.example.com";
+        viewModel.SearchQuery = "api.example.com";
+        await Task.Delay(300);
 
-        viewModel.ClearDomainFilterCommand.Execute(null);
+        viewModel.ClearSearchCommand.Execute(null);
+        await Task.Delay(300);
 
         Assert.Equal(2, viewModel.Sessions.Count);
-        Assert.Equal(string.Empty, viewModel.DomainFilter);
+        Assert.Equal(string.Empty, viewModel.SearchQuery);
+    }
+
+    [Fact]
+    public async Task GlobalSearch_UsesAndAcrossDifferentFields()
+    {
+        var (viewModel, engine) = CreateViewModel();
+        var matching = CreateSession("api.google.com") with
+        {
+            Method = "POST",
+            RequestBody = "{ \"format\": \"json\" }"
+        };
+        engine.Add(matching);
+        engine.Add(CreateSession("api.google.com") with { Method = "GET", RequestBody = "json" });
+        engine.Add(CreateSession("example.com") with { Method = "POST", RequestBody = "json" });
+
+        viewModel.SearchQuery = "google.com POST json";
+        await Task.Delay(300);
+
+        Assert.Single(viewModel.Sessions);
+        Assert.Equal(matching.Id, viewModel.Sessions[0].Id);
+    }
+
+    [Fact]
+    public async Task SearchScope_CanRestrictMatchingToHostOnly()
+    {
+        var (viewModel, engine) = CreateViewModel();
+        engine.Add(CreateSession("example.com") with { Method = "POST" });
+        viewModel.SearchUrl = false;
+        viewModel.SearchMethodStatus = false;
+        viewModel.SearchHeaders = false;
+        viewModel.SearchBodies = false;
+        viewModel.SearchMetadata = false;
+        viewModel.SearchQuery = "POST";
+
+        await Task.Delay(300);
+
+        Assert.Empty(viewModel.Sessions);
     }
 
     [Fact]

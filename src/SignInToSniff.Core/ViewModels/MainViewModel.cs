@@ -19,8 +19,15 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     private readonly IExclusionStore _exclusionStore;
     private bool _disposed;
     private int _totalCaptured;
+    private CancellationTokenSource? _searchCancellation;
 
-    [ObservableProperty] private string _domainFilter = string.Empty;
+    [ObservableProperty] private string _searchQuery = string.Empty;
+    [ObservableProperty] private bool _searchHost = true;
+    [ObservableProperty] private bool _searchUrl = true;
+    [ObservableProperty] private bool _searchMethodStatus = true;
+    [ObservableProperty] private bool _searchHeaders = true;
+    [ObservableProperty] private bool _searchBodies = true;
+    [ObservableProperty] private bool _searchMetadata = true;
     [ObservableProperty] private bool _autoScroll = true;
     [ObservableProperty] private bool _showTimeColumn = true;
     [ObservableProperty] private bool _showSizeColumn = true;
@@ -135,7 +142,13 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
         await _dispatcher.InvokeAsync(() => ApplyCertificateStatus(status));
     }
 
-    partial void OnDomainFilterChanged(string value) => ApplyFilter();
+    partial void OnSearchQueryChanged(string value) => ScheduleSearchFilter();
+    partial void OnSearchHostChanged(bool value) => ScheduleSearchFilter();
+    partial void OnSearchUrlChanged(bool value) => ScheduleSearchFilter();
+    partial void OnSearchMethodStatusChanged(bool value) => ScheduleSearchFilter();
+    partial void OnSearchHeadersChanged(bool value) => ScheduleSearchFilter();
+    partial void OnSearchBodiesChanged(bool value) => ScheduleSearchFilter();
+    partial void OnSearchMetadataChanged(bool value) => ScheduleSearchFilter();
     partial void OnNewestFirstChanged(bool value) => ApplyFilter();
 
     partial void OnProxyStateChanged(ProxyState value)
@@ -170,7 +183,7 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
         await ApplyLaunchResultAsync(_clientLauncher.LaunchFreshTerminalAsync(Endpoint));
 
     [RelayCommand]
-    private void ClearDomainFilter() => DomainFilter = string.Empty;
+    private void ClearSearch() => SearchQuery = string.Empty;
 
     [RelayCommand]
     private void ClearLogs()
@@ -188,6 +201,8 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
         _disposed = true;
         _proxyEngine.CaptureReceived -= OnCaptureReceived;
         _proxyEngine.StateChanged -= OnProxyStateChanged;
+        _searchCancellation?.Cancel();
+        _searchCancellation?.Dispose();
         await _proxyEngine.DisposeAsync();
     }
 
@@ -220,7 +235,7 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
         }
         UpdateExclusionMatchCounts();
 
-        if (MatchesFilter(session))
+        if (MatchesFilter(session, GetSearchTokens(SearchQuery), GetSearchOptions()))
         {
             if (NewestFirst) Sessions.Insert(0, session);
             else Sessions.Add(session);
@@ -238,7 +253,24 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
         _allSessions[allIndex] = session;
 
         var visible = Sessions.FirstOrDefault(item => item.Id == session.Id);
-        if (visible is null) return;
+        var shouldBeVisible = MatchesFilter(session, GetSearchTokens(SearchQuery), GetSearchOptions());
+        if (visible is null)
+        {
+            if (shouldBeVisible)
+            {
+                if (NewestFirst) Sessions.Insert(0, session);
+                else Sessions.Add(session);
+                NotifyCollectionSummaryChanged();
+            }
+            return;
+        }
+        if (!shouldBeVisible)
+        {
+            Sessions.Remove(visible);
+            if (SelectedSession?.Id == session.Id) SelectedSession = Sessions.FirstOrDefault();
+            NotifyCollectionSummaryChanged();
+            return;
+        }
         var visibleIndex = Sessions.IndexOf(visible);
         var wasSelected = SelectedSession?.Id == session.Id;
         Sessions[visibleIndex] = session;
@@ -250,16 +282,79 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
         UpdateExclusionMatchCounts();
         var selectedId = SelectedSession?.Id;
         Sessions.Clear();
-        var matching = _allSessions.Where(MatchesFilter);
+        var tokens = GetSearchTokens(SearchQuery);
+        var options = GetSearchOptions();
+        var matching = _allSessions.Where(session => MatchesFilter(session, tokens, options));
         if (NewestFirst) matching = matching.Reverse();
         foreach (var session in matching) Sessions.Add(session);
         SelectedSession = Sessions.FirstOrDefault(session => session.Id == selectedId) ?? Sessions.FirstOrDefault();
         NotifyCollectionSummaryChanged();
     }
 
-    private bool MatchesFilter(CapturedSession session) =>
-        !IsExcluded(session.Host) && (string.IsNullOrWhiteSpace(DomainFilter)
-        || session.Host.Contains(DomainFilter.Trim(), StringComparison.OrdinalIgnoreCase));
+    private bool MatchesFilter(CapturedSession session, string[] tokens, SearchOptions options) =>
+        !IsExcluded(session.Host) && tokens.All(token => MatchesSearchToken(session, token, options));
+
+    private static bool MatchesSearchToken(CapturedSession session, string token, SearchOptions options) =>
+        (options.Host && Contains(session.Host, token)) ||
+        (options.Url && Contains(session.Url, token)) ||
+        (options.MethodStatus && (Contains(session.Method, token) || Contains(session.StatusText, token))) ||
+        (options.Headers && (Contains(session.RequestHeaders, token) || Contains(session.ResponseHeaders, token))) ||
+        (options.Bodies && (Contains(session.RequestBody, token) || Contains(session.ResponseBody, token))) ||
+        (options.Metadata && (Contains(session.SizeText, token) || Contains(session.DurationText, token) || Contains(session.StartedAtText, token)));
+
+    private static bool Contains(string value, string token) => value.Contains(token, StringComparison.OrdinalIgnoreCase);
+
+    private static string[] GetSearchTokens(string query) =>
+        query.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    private SearchOptions GetSearchOptions() => new(
+        SearchHost, SearchUrl, SearchMethodStatus, SearchHeaders, SearchBodies, SearchMetadata);
+
+    private void ScheduleSearchFilter()
+    {
+        _searchCancellation?.Cancel();
+        _searchCancellation?.Dispose();
+        _searchCancellation = new CancellationTokenSource();
+        _ = ApplySearchFilterAsync(_searchCancellation.Token);
+    }
+
+    private async Task ApplySearchFilterAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(200, cancellationToken);
+            CapturedSession[] snapshot = [];
+            ExclusionRule[] exclusions = [];
+            string[] tokens = [];
+            SearchOptions options = new(true, true, true, true, true, true);
+            var newestFirst = false;
+            await _dispatcher.InvokeAsync(() =>
+            {
+                snapshot = _allSessions.ToArray();
+                exclusions = Exclusions.ToArray();
+                tokens = GetSearchTokens(SearchQuery);
+                options = GetSearchOptions();
+                newestFirst = NewestFirst;
+            });
+            var matches = await Task.Run(() => snapshot
+                .Where(session => !exclusions.Any(rule => rule.Matches(session.Host)) &&
+                    tokens.All(token => MatchesSearchToken(session, token, options)))
+                .ToArray(), cancellationToken);
+            if (newestFirst) Array.Reverse(matches);
+            await _dispatcher.InvokeAsync(() =>
+            {
+                if (cancellationToken.IsCancellationRequested) return;
+                var selectedId = SelectedSession?.Id;
+                Sessions.Clear();
+                foreach (var session in matches) Sessions.Add(session);
+                SelectedSession = Sessions.FirstOrDefault(session => session.Id == selectedId) ?? Sessions.FirstOrDefault();
+                NotifyCollectionSummaryChanged();
+            });
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
 
     private bool IsExcluded(string host) => Exclusions.Any(rule => rule.Matches(host));
 
@@ -313,4 +408,12 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
         { Exists: true } => "HTTPS certificate: not trusted",
         _ => "HTTPS certificate: not created"
     };
+
+    private sealed record SearchOptions(
+        bool Host,
+        bool Url,
+        bool MethodStatus,
+        bool Headers,
+        bool Bodies,
+        bool Metadata);
 }
