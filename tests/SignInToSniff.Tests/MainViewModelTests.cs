@@ -1,9 +1,9 @@
+using SignInToSniff.Exclusions;
+using SignInToSniff.Launching;
 using SignInToSniff.Models;
 using SignInToSniff.Proxy;
 using SignInToSniff.Threading;
 using SignInToSniff.ViewModels;
-using SignInToSniff.Launching;
-using SignInToSniff.Exclusions;
 using Xunit;
 
 namespace SignInToSniff.Tests;
@@ -18,7 +18,7 @@ public sealed class MainViewModelTests
         engine.Add(CreateSession("cdn.example.net"));
 
         viewModel.SearchQuery = "API.EXAMPLE.COM";
-        await Task.Delay(300);
+        await Task.Delay(300, TestContext.Current.CancellationToken);
 
         Assert.Single(viewModel.Sessions);
         Assert.Equal("api.example.com", viewModel.Sessions[0].Host);
@@ -114,10 +114,10 @@ public sealed class MainViewModelTests
         engine.Add(CreateSession("api.example.com"));
         engine.Add(CreateSession("cdn.example.net"));
         viewModel.SearchQuery = "api.example.com";
-        await Task.Delay(300);
+        await Task.Delay(300, TestContext.Current.CancellationToken);
 
         viewModel.ClearSearchCommand.Execute(null);
-        await Task.Delay(300);
+        await Task.Delay(300, TestContext.Current.CancellationToken);
 
         Assert.Equal(2, viewModel.Sessions.Count);
         Assert.Equal(string.Empty, viewModel.SearchQuery);
@@ -137,7 +137,7 @@ public sealed class MainViewModelTests
         engine.Add(CreateSession("example.com") with { Method = "POST", RequestBody = "json" });
 
         viewModel.SearchQuery = "google.com POST json";
-        await Task.Delay(300);
+        await Task.Delay(300, TestContext.Current.CancellationToken);
 
         Assert.Single(viewModel.Sessions);
         Assert.Equal(matching.Id, viewModel.Sessions[0].Id);
@@ -155,7 +155,7 @@ public sealed class MainViewModelTests
         viewModel.SearchMetadata = false;
         viewModel.SearchQuery = "POST";
 
-        await Task.Delay(300);
+        await Task.Delay(300, TestContext.Current.CancellationToken);
 
         Assert.Empty(viewModel.Sessions);
     }
