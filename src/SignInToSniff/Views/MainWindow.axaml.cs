@@ -247,4 +247,27 @@ public sealed partial class MainWindow : Window
         var window = new ExclusionsWindow { DataContext = _viewModel };
         await window.ShowDialog(this);
     }
+
+    private async void OnManageTlsPassthroughClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel is null) return;
+        var window = new TlsPassthroughWindow { DataContext = _viewModel };
+        await window.ShowDialog(this);
+    }
+
+    private async void OnAddExactTlsPassthroughClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel is not null && sender is MenuItem { DataContext: CapturedSession session })
+        {
+            await _viewModel.AddTlsPassthroughRuleAsync(session.Host, SignInToSniff.Exclusions.ExclusionScope.ExactHost);
+        }
+    }
+
+    private async void OnAddDomainTlsPassthroughClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel is not null && sender is MenuItem { DataContext: CapturedSession session })
+        {
+            await _viewModel.AddTlsPassthroughRuleAsync(session.SiteDomain, SignInToSniff.Exclusions.ExclusionScope.DomainAndSubdomains);
+        }
+    }
 }

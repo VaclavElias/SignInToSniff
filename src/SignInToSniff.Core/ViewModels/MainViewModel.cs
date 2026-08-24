@@ -17,6 +17,7 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     private readonly IUiDispatcher _dispatcher;
     private readonly IClientLauncher _clientLauncher;
     private readonly IExclusionStore _exclusionStore;
+    private readonly IHostRuleSet? _tlsPassthroughRuleSet;
     private bool _disposed;
     private int _totalCaptured;
     private CancellationTokenSource? _searchCancellation;
@@ -40,12 +41,20 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     [ObservableProperty] private int _clientConnectionCount;
     [ObservableProperty] private int _serverConnectionCount;
 
-    public MainViewModel(IProxyEngine proxyEngine, IUiDispatcher dispatcher, IClientLauncher clientLauncher, IExclusionStore exclusionStore)
+    public MainViewModel(
+        IProxyEngine proxyEngine,
+        IUiDispatcher dispatcher,
+        IClientLauncher clientLauncher,
+        IExclusionStore exclusionStore,
+        IHostRuleSet? tlsPassthroughRuleSet = null)
     {
         _proxyEngine = proxyEngine;
         _dispatcher = dispatcher;
         _clientLauncher = clientLauncher;
         _exclusionStore = exclusionStore;
+        _tlsPassthroughRuleSet = tlsPassthroughRuleSet;
+        TlsPassthroughRules = tlsPassthroughRuleSet?.Rules ??
+            new ReadOnlyObservableCollection<ExclusionRule>(new ObservableCollection<ExclusionRule>());
         foreach (var rule in exclusionStore.Load().Distinct()) Exclusions.Add(rule);
         ProxyState = proxyEngine.State;
         proxyEngine.CaptureReceived += OnCaptureReceived;
@@ -58,6 +67,7 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
 
     public ObservableCollection<CapturedSession> Sessions { get; } = [];
     public ObservableCollection<ExclusionRule> Exclusions { get; } = [];
+    public ReadOnlyObservableCollection<ExclusionRule> TlsPassthroughRules { get; }
 
     public event EventHandler<CapturedSession>? VisibleSessionAdded;
 
@@ -131,6 +141,12 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
         ApplyFilter();
         await PersistExclusionsAsync();
     }
+
+    public Task AddTlsPassthroughRuleAsync(string domain, ExclusionScope scope) =>
+        _tlsPassthroughRuleSet?.AddAsync(domain, scope) ?? Task.CompletedTask;
+
+    public Task RemoveTlsPassthroughRuleAsync(ExclusionRule rule) =>
+        _tlsPassthroughRuleSet?.RemoveAsync(rule) ?? Task.CompletedTask;
 
     public async Task<CertificateOperationResult> InstallCertificateAsync(bool machineWide)
     {

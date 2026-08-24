@@ -3,6 +3,7 @@ using System.Net;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 using SignInToSniff.Models;
+using SignInToSniff.Exclusions;
 using Titanium.Web.Proxy;
 using Titanium.Web.Proxy.EventArguments;
 using Titanium.Web.Proxy.Models;
@@ -26,9 +27,11 @@ public sealed class TitaniumProxyEngine : IProxyEngine
     private ProxyServer? _proxyServer;
     private ExplicitProxyEndPoint? _endPoint;
     private bool _disposed;
+    private readonly IHostRuleSet? _tlsPassthroughRules;
 
-    public TitaniumProxyEngine()
+    public TitaniumProxyEngine(IHostRuleSet? tlsPassthroughRules = null)
     {
+        _tlsPassthroughRules = tlsPassthroughRules;
         _pumpTask = PumpUpdatesAsync(_pumpCancellation.Token);
     }
 
@@ -69,6 +72,7 @@ public sealed class TitaniumProxyEngine : IProxyEngine
                 proxyServer.AfterResponse += OnAfterResponseAsync;
                 proxyServer.ClientConnectionCountChanged += OnConnectionCountChanged;
                 proxyServer.ServerConnectionCountChanged += OnConnectionCountChanged;
+                endPoint.BeforeTunnelConnectRequest += OnBeforeTunnelConnectRequestAsync;
                 proxyServer.AddEndPoint(endPoint);
                 proxyServer.Start();
 
@@ -261,6 +265,15 @@ public sealed class TitaniumProxyEngine : IProxyEngine
         return Task.CompletedTask;
     }
 
+    private Task OnBeforeTunnelConnectRequestAsync(object sender, TunnelConnectSessionEventArgs eventArgs)
+    {
+        if (_tlsPassthroughRules?.Matches(eventArgs.HttpClient.Request.RequestUri.Host) == true)
+        {
+            eventArgs.DecryptSsl = false;
+        }
+        return Task.CompletedTask;
+    }
+
     private static async Task<BodyCaptureResult> CaptureBodyAsync(
         bool hasBody,
         long contentLength,
@@ -307,6 +320,7 @@ public sealed class TitaniumProxyEngine : IProxyEngine
         _proxyServer.AfterResponse -= OnAfterResponseAsync;
         _proxyServer.ClientConnectionCountChanged -= OnConnectionCountChanged;
         _proxyServer.ServerConnectionCountChanged -= OnConnectionCountChanged;
+        if (_endPoint is not null) _endPoint.BeforeTunnelConnectRequest -= OnBeforeTunnelConnectRequestAsync;
 
         try
         {

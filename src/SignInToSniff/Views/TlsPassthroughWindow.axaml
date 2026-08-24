@@ -1,0 +1,40 @@
+<Window
+    x:Class="SignInToSniff.Views.TlsPassthroughWindow"
+    x:DataType="vm:MainViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:exclusions="using:SignInToSniff.Exclusions"
+    xmlns:vm="using:SignInToSniff.ViewModels"
+    Title="HTTPS passthrough"
+    Width="650" Height="500" MinWidth="520" MinHeight="380"
+    WindowStartupLocation="CenterOwner">
+  <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="20">
+    <TextBlock Text="HTTPS passthrough rules" FontSize="20" FontWeight="SemiBold" />
+    <TextBlock Grid.Row="1" Margin="0,5,0,16" Foreground="#657084" TextWrapping="Wrap"
+               Text="Matching HTTPS connections still use the proxy, but TLS is not decrypted and their inner requests cannot be inspected. Use this for certificate-pinned or identity services." />
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" Margin="0,0,0,14">
+      <TextBox x:Name="DomainInput" PlaceholderText="api.example.com" />
+      <Button Grid.Column="1" Content="Add" Margin="8,0,0,0" Padding="18,6" Click="OnAddClick" />
+      <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="16" Margin="0,9,0,0">
+        <RadioButton x:Name="ExactHostOption" Content="Exact host" IsChecked="True" />
+        <RadioButton Content="Domain and subdomains" />
+        <TextBlock x:Name="ValidationMessage" Foreground="#A8262D" VerticalAlignment="Center" />
+      </StackPanel>
+    </Grid>
+    <Border Grid.Row="3" BorderBrush="#DDE2EA" BorderThickness="1" CornerRadius="6">
+      <ListBox ItemsSource="{Binding TlsPassthroughRules}">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="exclusions:ExclusionRule">
+            <Grid ColumnDefinitions="*,Auto" Margin="10,7">
+              <StackPanel>
+                <TextBlock Text="{Binding DisplayText}" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding Scope}" FontSize="11" Foreground="#657084" />
+              </StackPanel>
+              <Button Grid.Column="1" Content="Remove" Click="OnRemoveClick" />
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </Border>
+  </Grid>
+</Window>

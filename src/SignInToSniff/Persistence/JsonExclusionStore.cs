@@ -6,21 +6,23 @@ namespace SignInToSniff.Persistence;
 public sealed class JsonExclusionStore : IExclusionStore
 {
     private readonly string _filePath;
+    private readonly IReadOnlyList<ExclusionRule> _defaults;
 
-    public JsonExclusionStore()
+    public JsonExclusionStore(string fileName = "exclusions.json", IReadOnlyList<ExclusionRule>? defaults = null)
     {
         var directory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "SignInToSniff");
         Directory.CreateDirectory(directory);
-        _filePath = Path.Combine(directory, "exclusions.json");
+        _filePath = Path.Combine(directory, fileName);
+        _defaults = defaults ?? [];
     }
 
     public IReadOnlyList<ExclusionRule> Load()
     {
         try
         {
-            if (!File.Exists(_filePath)) return [];
+            if (!File.Exists(_filePath)) return _defaults;
             return JsonSerializer.Deserialize<List<ExclusionRule>>(File.ReadAllText(_filePath)) ?? [];
         }
         catch (JsonException)

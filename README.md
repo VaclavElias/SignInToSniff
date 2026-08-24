@@ -45,6 +45,10 @@ Choose **Intercept -> Fresh Chrome** to open an independent Chrome window alread
 
 The generated root certificate and private key are persisted in the current user's local application-data directory so the same trusted identity is reused across restarts. Trust-store changes are never performed at startup or without the confirmation dialog.
 
+### HTTPS passthrough
+
+Open **Tools -> Manage HTTPS passthrough** to review or edit hosts that should travel through the proxy without TLS decryption. SignInToSniff seeds recommended Microsoft identity, Dropbox, and Webex rules because those services may use certificate pinning or OS authentication flows that do not tolerate interception. Passthrough traffic continues normally, but its inner HTTPS headers and bodies cannot be captured. Customizations are saved in `SignInToSniff/https-passthrough.json` under local application data. You can also right-click a captured request to add its exact host or site domain for future connections.
+
 ### Exclusions
 
 Exclusions hide matching traffic from the capture list; they do not block or reroute the request. Hidden requests remain in the bounded in-memory session so removing a rule restores them during the same app session. The exclusions window shows how many retained requests each rule currently hides. **Exact host** matches only the named host. **Domain and subdomains** matches the named site domain and every host below it. Rules are stored in `SignInToSniff/exclusions.json` under the current user's local application-data directory and restored when the app starts.
