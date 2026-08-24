@@ -1,5 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using SignInToSniff.Models;
 using SignInToSniff.ViewModels;
 
@@ -43,6 +45,28 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        SessionList.ScrollIntoView(newest);
+        if (!_viewModel.NewestFirst)
+        {
+            SessionList.ScrollIntoView(newest);
+            return;
+        }
+
+        // ListBox preserves the selected container's viewport position when items are inserted
+        // ahead of it. Run after layout and explicitly pin the tape to its new top instead of
+        // relying on ScrollIntoView's minimal movement.
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                var scrollViewer = SessionList
+                    .GetVisualDescendants()
+                    .OfType<ScrollViewer>()
+                    .FirstOrDefault();
+
+                if (scrollViewer is not null)
+                {
+                    scrollViewer.Offset = scrollViewer.Offset.WithY(0);
+                }
+            },
+            DispatcherPriority.Background);
     }
 }
