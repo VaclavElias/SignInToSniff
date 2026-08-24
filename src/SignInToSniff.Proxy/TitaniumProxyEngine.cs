@@ -214,6 +214,7 @@ public sealed class TitaniumProxyEngine : IProxyEngine
             null)
         {
             Protocol = FormatProtocol(request.HttpVersion),
+            RequestContentType = requestBody.ContentType,
             ReceivedBytes = GetCapturedSize(formattedHeaders, request.ContentLength, requestBody.ByteCount)
         };
 
@@ -327,7 +328,10 @@ public sealed class TitaniumProxyEngine : IProxyEngine
             var body = await readBody(CancellationToken.None).ConfigureAwait(false);
             // Titanium exposes a decoded inspection buffer even though the original
             // Content-Encoding header remains present on the proxied response.
-            return new BodyCaptureResult(BodyCaptureFormatter.Format(body, contentType, contentEncoding: null), body.LongLength);
+            return new BodyCaptureResult(
+                BodyCaptureFormatter.Format(body, contentType, contentEncoding: null),
+                body.LongLength,
+                ContentType: mediaType);
         }
         catch (Exception exception)
         {

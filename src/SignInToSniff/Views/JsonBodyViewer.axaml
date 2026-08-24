@@ -1,0 +1,43 @@
+<UserControl
+    x:Class="SignInToSniff.Views.JsonBodyViewer"
+    x:Name="ViewerRoot"
+    x:CompileBindings="False"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:SignInToSniff.ViewModels">
+  <TabControl>
+    <TabItem Padding="10,4">
+      <TabItem.Header>
+        <TextBlock Text="Syntax" FontSize="14" FontWeight="Normal" />
+      </TabItem.Header>
+      <Border Background="#F8FAFC" BorderBrush="#DDE2EA" BorderThickness="1" Padding="10">
+        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+          <SelectableTextBlock x:Name="SyntaxText" FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12" />
+        </ScrollViewer>
+      </Border>
+    </TabItem>
+    <TabItem Padding="10,4">
+      <TabItem.Header>
+        <TextBlock Text="Tree" FontSize="14" FontWeight="Normal" />
+      </TabItem.Header>
+      <Border Background="#F8FAFC" BorderBrush="#DDE2EA" BorderThickness="1" Padding="6">
+        <TreeView ItemsSource="{Binding Nodes, ElementName=ViewerRoot}">
+          <TreeView.ItemTemplate>
+            <TreeDataTemplate ItemsSource="{Binding Children}" DataType="vm:JsonTreeNode">
+              <StackPanel Orientation="Horizontal" Spacing="5">
+                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                <SelectableTextBlock Text="{Binding Value}" Foreground="{Binding ValueColor}" IsVisible="{Binding HasValue}" />
+              </StackPanel>
+            </TreeDataTemplate>
+          </TreeView.ItemTemplate>
+        </TreeView>
+      </Border>
+    </TabItem>
+    <TabItem Padding="10,4">
+      <TabItem.Header>
+        <TextBlock Text="Raw" FontSize="14" FontWeight="Normal" />
+      </TabItem.Header>
+      <TextBox Classes="payload" Text="{Binding Body, ElementName=ViewerRoot}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" />
+    </TabItem>
+  </TabControl>
+</UserControl>

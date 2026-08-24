@@ -19,6 +19,7 @@ public sealed record CapturedSession(
     public long SentBytes { get; init; }
     public string? ProxyError { get; init; }
     public byte[]? ResponseImageBytes { get; init; }
+    public string? RequestContentType { get; init; }
     public string? ResponseContentType { get; init; }
 
     public string StatusText => StatusCode?.ToString() ?? "…";
@@ -39,6 +40,10 @@ public sealed record CapturedSession(
 
     public bool HasImagePreview => ResponseImageBytes is { Length: > 0 };
 
+    public bool HasRequestJson => IsJsonContentType(RequestContentType);
+
+    public bool HasResponseJson => !HasImagePreview && IsJsonContentType(ResponseContentType);
+
     public string StartedAtText => StartedAt.ToLocalTime().ToString("HH:mm:ss");
 
     public string SiteDomain
@@ -51,5 +56,12 @@ public sealed record CapturedSession(
             var commonSecondLevel = labels[^1].Length == 2 && labels[^2] is "ac" or "co" or "com" or "gov" or "net" or "org";
             return string.Join('.', commonSecondLevel && labels.Length >= 3 ? labels[^3..] : labels[^2..]);
         }
+    }
+
+    private static bool IsJsonContentType(string? contentType)
+    {
+        var mediaType = (contentType ?? string.Empty).Split(';', 2)[0].Trim();
+        return mediaType.Equals("application/json", StringComparison.OrdinalIgnoreCase) ||
+               mediaType.EndsWith("+json", StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -4,6 +4,7 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:models="using:SignInToSniff.Models"
+    xmlns:views="using:SignInToSniff.Views"
     xmlns:vm="using:SignInToSniff.ViewModels"
     Title="SignInToSniff"
     Width="1280"
@@ -248,7 +249,10 @@
             </Border>
 
             <TabControl Grid.Row="2">
-              <TabItem Header="Request">
+              <TabItem Padding="10,4">
+                <TabItem.Header>
+                  <TextBlock Text="Request" FontSize="14" FontWeight="Normal" />
+                </TabItem.Header>
                 <Grid RowDefinitions="2*,8,3*" Margin="0,14,0,0">
                   <Grid RowDefinitions="Auto,*">
                     <TextBlock Text="Headers" FontWeight="SemiBold" Margin="0,0,0,6" />
@@ -267,11 +271,20 @@
                         </Button.Flyout>
                       </Button>
                     </Grid>
-                    <TextBox Grid.Row="1" Classes="payload" Text="{Binding SelectedSession.RequestBody}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" />
+                    <Grid Grid.Row="1">
+                      <TextBox Classes="payload" Text="{Binding SelectedSession.RequestBody}"
+                               IsVisible="{Binding !SelectedSession.HasRequestJson}"
+                               IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" />
+                      <views:JsonBodyViewer Body="{Binding SelectedSession.RequestBody}"
+                                            IsVisible="{Binding SelectedSession.HasRequestJson}" />
+                    </Grid>
                   </Grid>
                 </Grid>
               </TabItem>
-              <TabItem Header="Response">
+              <TabItem Padding="10,4">
+                <TabItem.Header>
+                  <TextBlock Text="Response" FontSize="14" FontWeight="Normal" />
+                </TabItem.Header>
                 <Grid RowDefinitions="2*,8,3*" Margin="0,14,0,0">
                   <Grid RowDefinitions="Auto,*">
                     <TextBlock Text="Headers" FontWeight="SemiBold" Margin="0,0,0,6" />
@@ -291,12 +304,16 @@
                       </Button>
                     </Grid>
                     <Grid Grid.Row="1">
-                      <TextBox Classes="payload"
-                               Text="{Binding SelectedSession.ResponseBody}"
-                               IsVisible="{Binding !SelectedSession.HasImagePreview}"
-                               IsReadOnly="True"
-                               AcceptsReturn="True"
-                               TextWrapping="NoWrap" />
+                      <Grid IsVisible="{Binding !SelectedSession.HasImagePreview}">
+                        <TextBox Classes="payload"
+                                 Text="{Binding SelectedSession.ResponseBody}"
+                                 IsVisible="{Binding !SelectedSession.HasResponseJson}"
+                                 IsReadOnly="True"
+                                 AcceptsReturn="True"
+                                 TextWrapping="NoWrap" />
+                        <views:JsonBodyViewer Body="{Binding SelectedSession.ResponseBody}"
+                                              IsVisible="{Binding SelectedSession.HasResponseJson}" />
+                      </Grid>
                       <Border IsVisible="{Binding SelectedSession.HasImagePreview}"
                               Background="#F4F6F9"
                               BorderBrush="#DDE2EA"

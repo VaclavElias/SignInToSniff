@@ -84,6 +84,7 @@ public sealed class TitaniumProxyEngineTests
 
         Assert.Equal("POST", requestUpdate.Session.Method);
         Assert.Contains("\"hello\": \"world\"", requestUpdate.Session.RequestBody);
+        Assert.Equal("application/json", requestUpdate.Session.RequestContentType);
     }
 
     [Fact]
