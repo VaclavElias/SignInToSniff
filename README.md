@@ -23,6 +23,10 @@ dotnet run --project src/SignInToSniff/SignInToSniff.csproj
 6. Click **Stop** and confirm traffic is no longer accepted on port 8000.
 7. Start a second process on port 8000 and confirm SignInToSniff reports a useful startup error.
 8. Confirm Certificate remains disabled and no certificate-store or system-proxy settings change.
+9. With the proxy running, use **Intercept → Fresh Chrome** and confirm an isolated Chrome window opens through the proxy.
+10. Use **Intercept → Fresh Terminal** and confirm Windows Terminal opens its default profile; tools launched there inherit temporary HTTP proxy variables.
+
+Fresh Chrome uses a disposable profile and does not affect the main Chrome profile. Fresh Terminal variables exist only in that terminal and its child processes. The disabled Main Chrome option is reserved for a later implementation that must show a confirmation before closing or relaunching the normal profile.
 
 ### Automated checks
 

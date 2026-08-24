@@ -5,6 +5,7 @@ using SignInToSniff.ViewModels;
 using SignInToSniff.Views;
 using SignInToSniff.Proxy;
 using SignInToSniff.Threading;
+using SignInToSniff.Launching;
 
 namespace SignInToSniff;
 
@@ -18,7 +19,10 @@ public sealed partial class App : Application
         {
             desktop.MainWindow = new MainWindow
             {
-                DataContext = new MainViewModel(new TitaniumProxyEngine(), new AvaloniaUiDispatcher())
+                DataContext = new MainViewModel(
+                    new TitaniumProxyEngine(),
+                    new AvaloniaUiDispatcher(),
+                    new WindowsClientLauncher())
             };
         }
 

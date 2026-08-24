@@ -53,6 +53,12 @@
 
   <Grid RowDefinitions="Auto,Auto,Auto,*">
     <Menu Grid.Row="0" Background="White">
+      <MenuItem Header="_Intercept">
+        <MenuItem Header="Fresh _Chrome" Command="{Binding LaunchFreshChromeCommand}" />
+        <MenuItem Header="Fresh _Terminal" Command="{Binding LaunchFreshTerminalCommand}" />
+        <Separator />
+        <MenuItem Header="Main Chrome profile (not implemented)" IsEnabled="False" ToolTip.Tip="This will require closing Chrome and explicit confirmation before changing how the main profile launches." />
+      </MenuItem>
       <MenuItem Header="_View">
         <MenuItem Header="Show _time column" ToggleType="CheckBox" IsChecked="{Binding ShowTimeColumn, Mode=TwoWay}" />
         <MenuItem Header="Show _newest requests first" ToggleType="CheckBox" IsChecked="{Binding NewestFirst, Mode=TwoWay}" />

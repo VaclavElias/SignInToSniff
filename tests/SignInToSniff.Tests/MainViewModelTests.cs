@@ -2,6 +2,7 @@ using SignInToSniff.Models;
 using SignInToSniff.Proxy;
 using SignInToSniff.Threading;
 using SignInToSniff.ViewModels;
+using SignInToSniff.Launching;
 using Xunit;
 
 namespace SignInToSniff.Tests;
@@ -119,7 +120,7 @@ public sealed class MainViewModelTests
     private static (MainViewModel ViewModel, FakeProxyEngine Engine) CreateViewModel()
     {
         var engine = new FakeProxyEngine();
-        return (new MainViewModel(engine, new InlineUiDispatcher()), engine);
+        return (new MainViewModel(engine, new InlineUiDispatcher(), new FakeClientLauncher()), engine);
     }
 
     private static CapturedSession CreateSession(string host) => new(
@@ -160,5 +161,14 @@ public sealed class MainViewModelTests
             State = state;
             StateChanged?.Invoke(this, new ProxyStateChanged(state));
         }
+    }
+
+    private sealed class FakeClientLauncher : IClientLauncher
+    {
+        public Task<ClientLaunchResult> LaunchFreshChromeAsync(string proxyEndpoint) =>
+            Task.FromResult(new ClientLaunchResult(true));
+
+        public Task<ClientLaunchResult> LaunchFreshTerminalAsync(string proxyEndpoint) =>
+            Task.FromResult(new ClientLaunchResult(true));
     }
 }

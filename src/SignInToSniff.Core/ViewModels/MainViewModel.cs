@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using SignInToSniff.Models;
 using SignInToSniff.Proxy;
 using SignInToSniff.Threading;
+using SignInToSniff.Launching;
 
 namespace SignInToSniff.ViewModels;
 
@@ -13,6 +14,7 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     private readonly List<CapturedSession> _allSessions = [];
     private readonly IProxyEngine _proxyEngine;
     private readonly IUiDispatcher _dispatcher;
+    private readonly IClientLauncher _clientLauncher;
     private bool _disposed;
 
     [ObservableProperty] private string _domainFilter = string.Empty;
@@ -23,10 +25,11 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     [ObservableProperty] private ProxyState _proxyState;
     [ObservableProperty] private string? _errorMessage;
 
-    public MainViewModel(IProxyEngine proxyEngine, IUiDispatcher dispatcher)
+    public MainViewModel(IProxyEngine proxyEngine, IUiDispatcher dispatcher, IClientLauncher clientLauncher)
     {
         _proxyEngine = proxyEngine;
         _dispatcher = dispatcher;
+        _clientLauncher = clientLauncher;
         ProxyState = proxyEngine.State;
         proxyEngine.CaptureReceived += OnCaptureReceived;
         proxyEngine.StateChanged += OnProxyStateChanged;
@@ -62,6 +65,8 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
         OnPropertyChanged(nameof(CanStopProxy));
         StartProxyCommand.NotifyCanExecuteChanged();
         StopProxyCommand.NotifyCanExecuteChanged();
+        LaunchFreshChromeCommand.NotifyCanExecuteChanged();
+        LaunchFreshTerminalCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnErrorMessageChanged(string? value) => OnPropertyChanged(nameof(HasError));
@@ -75,6 +80,14 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
 
     [RelayCommand(CanExecute = nameof(CanStopProxy))]
     private async Task StopProxyAsync() => await _proxyEngine.StopAsync();
+
+    [RelayCommand(CanExecute = nameof(CanStopProxy))]
+    private async Task LaunchFreshChromeAsync() =>
+        await ApplyLaunchResultAsync(_clientLauncher.LaunchFreshChromeAsync(Endpoint));
+
+    [RelayCommand(CanExecute = nameof(CanStopProxy))]
+    private async Task LaunchFreshTerminalAsync() =>
+        await ApplyLaunchResultAsync(_clientLauncher.LaunchFreshTerminalAsync(Endpoint));
 
     [RelayCommand]
     private void ClearDomainFilter() => DomainFilter = string.Empty;
@@ -168,5 +181,12 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     {
         OnPropertyChanged(nameof(SessionCountText));
         OnPropertyChanged(nameof(HasSessions));
+    }
+
+    private async Task ApplyLaunchResultAsync(Task<ClientLaunchResult> launchTask)
+    {
+        ErrorMessage = null;
+        var result = await launchTask;
+        if (!result.Succeeded) ErrorMessage = result.ErrorMessage;
     }
 }
