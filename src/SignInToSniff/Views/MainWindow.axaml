@@ -164,19 +164,29 @@
 
             <TabControl Grid.Row="2">
               <TabItem Header="Request">
-                <Grid RowDefinitions="Auto,140,12,Auto,*" Margin="0,14,0,0">
-                  <TextBlock Text="Headers" FontWeight="SemiBold" Margin="0,0,0,6" />
-                  <TextBox Grid.Row="1" Classes="payload" Text="{Binding SelectedSession.RequestHeaders}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" />
-                  <TextBlock Grid.Row="3" Text="Body" FontWeight="SemiBold" Margin="0,0,0,6" />
-                  <TextBox Grid.Row="4" Classes="payload" Text="{Binding SelectedSession.RequestBody}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" />
+                <Grid RowDefinitions="2*,8,3*" Margin="0,14,0,0">
+                  <Grid RowDefinitions="Auto,*">
+                    <TextBlock Text="Headers" FontWeight="SemiBold" Margin="0,0,0,6" />
+                    <TextBox Grid.Row="1" Classes="payload" Text="{Binding SelectedSession.RequestHeaders}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" />
+                  </Grid>
+                  <GridSplitter Grid.Row="1" Height="8" Background="#DDE2EA" ResizeDirection="Rows" />
+                  <Grid Grid.Row="2" RowDefinitions="Auto,*">
+                    <TextBlock Text="Body" FontWeight="SemiBold" Margin="0,0,0,6" />
+                    <TextBox Grid.Row="1" Classes="payload" Text="{Binding SelectedSession.RequestBody}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" />
+                  </Grid>
                 </Grid>
               </TabItem>
               <TabItem Header="Response">
-                <Grid RowDefinitions="Auto,140,12,Auto,*" Margin="0,14,0,0">
-                  <TextBlock Text="Headers" FontWeight="SemiBold" Margin="0,0,0,6" />
-                  <TextBox Grid.Row="1" Classes="payload" Text="{Binding SelectedSession.ResponseHeaders}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" />
-                  <TextBlock Grid.Row="3" Text="Body" FontWeight="SemiBold" Margin="0,0,0,6" />
-                  <TextBox Grid.Row="4" Classes="payload" Text="{Binding SelectedSession.ResponseBody}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" />
+                <Grid RowDefinitions="2*,8,3*" Margin="0,14,0,0">
+                  <Grid RowDefinitions="Auto,*">
+                    <TextBlock Text="Headers" FontWeight="SemiBold" Margin="0,0,0,6" />
+                    <TextBox Grid.Row="1" Classes="payload" Text="{Binding SelectedSession.ResponseHeaders}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" />
+                  </Grid>
+                  <GridSplitter Grid.Row="1" Height="8" Background="#DDE2EA" ResizeDirection="Rows" />
+                  <Grid Grid.Row="2" RowDefinitions="Auto,*">
+                    <TextBlock Text="Body" FontWeight="SemiBold" Margin="0,0,0,6" />
+                    <TextBox Grid.Row="1" Classes="payload" Text="{Binding SelectedSession.ResponseBody}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" />
+                  </Grid>
                 </Grid>
               </TabItem>
             </TabControl>
