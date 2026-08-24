@@ -32,11 +32,33 @@
       <Setter Property="Background" Value="#1769E0" />
       <Setter Property="Foreground" Value="White" />
       <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="Padding" Value="15,8" />
     </Style>
     <Style Selector="Button.danger">
       <Setter Property="Foreground" Value="#A8262D" />
-      <Setter Property="Padding" Value="12,8" />
+    </Style>
+    <Style Selector="Button.toolbar">
+      <Setter Property="Height" Value="36" />
+      <Setter Property="MinWidth" Value="64" />
+      <Setter Property="Padding" Value="14,6" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.icon">
+      <Setter Property="Width" Value="36" />
+      <Setter Property="Height" Value="36" />
+      <Setter Property="MinWidth" Value="36" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.bodyAction">
+      <Setter Property="Width" Value="34" />
+      <Setter Property="Height" Value="26" />
+      <Setter Property="MinWidth" Value="34" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="TextBox.payload">
       <Setter Property="FontFamily" Value="Cascadia Mono,Consolas,monospace" />
@@ -88,8 +110,8 @@
           <TextBlock Classes="muted" Text="{Binding CertificateStatusText}" FontSize="11" VerticalAlignment="Center" />
         </StackPanel>
 
-        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-          <Button Content="Certificate" ToolTip.Tip="Manage the HTTPS inspection certificate">
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <Button Classes="toolbar" Content="Certificate" ToolTip.Tip="Manage the HTTPS inspection certificate">
             <Button.Flyout>
               <MenuFlyout>
                 <MenuItem Header="Install for current user…" Click="OnInstallUserCertificateClick" />
@@ -100,8 +122,8 @@
               </MenuFlyout>
             </Button.Flyout>
           </Button>
-          <Button Content="Stop" Command="{Binding StopProxyCommand}" />
-          <Button Classes="primary" Content="Start Proxy" Command="{Binding StartProxyCommand}" />
+          <Button Classes="toolbar" Content="Stop" Command="{Binding StopProxyCommand}" />
+          <Button Classes="toolbar primary" Content="Start Proxy" Command="{Binding StartProxyCommand}" />
         </StackPanel>
       </Grid>
     </Border>
@@ -110,9 +132,9 @@
       <Grid ColumnDefinitions="Auto,390,22,Auto,*,Auto,8,Auto">
         <TextBlock Text="Search requests" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0" />
         <Grid Grid.Column="1" ColumnDefinitions="*,Auto,Auto">
-          <TextBox Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="google.com POST json" />
-          <Button Grid.Column="1" Content="×" Command="{Binding ClearSearchCommand}" ToolTip.Tip="Clear search" Padding="10,4" Margin="4,0,0,0" />
-          <Button Grid.Column="2" Content="⚙" ToolTip.Tip="Choose searchable fields" Padding="10,4" Margin="4,0,0,0">
+          <TextBox Height="36" VerticalContentAlignment="Center" Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="google.com POST json" />
+          <Button Grid.Column="1" Classes="icon" Content="×" Command="{Binding ClearSearchCommand}" ToolTip.Tip="Clear search" Margin="6,0,0,0" />
+          <Button Grid.Column="2" Classes="icon" Content="⚙" ToolTip.Tip="Choose searchable fields" Margin="6,0,0,0">
             <Button.Flyout>
               <MenuFlyout Placement="BottomEdgeAlignedRight">
                 <MenuItem Header="{Binding SearchScopeBulkActionText}" Command="{Binding ToggleAllSearchScopesCommand}" />
@@ -128,13 +150,16 @@
             </Button.Flyout>
           </Button>
         </Grid>
-        <ToggleSwitch Grid.Column="3" IsChecked="{Binding AutoScroll}" Content="Auto-scroll to newest" VerticalAlignment="Center" />
+        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+          <TextBlock Text="Auto-scroll to newest" VerticalAlignment="Center" />
+          <ToggleSwitch IsChecked="{Binding AutoScroll}" VerticalAlignment="Center" />
+        </StackPanel>
         <StackPanel Grid.Column="4" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,16,0">
           <TextBlock Classes="muted" Text="{Binding SessionCountText}" HorizontalAlignment="Right" />
           <TextBlock Text="{Binding ErrorMessage}" Foreground="#A8262D" FontSize="11" IsVisible="{Binding HasError}" />
         </StackPanel>
         <TextBlock Grid.Column="5" Classes="muted" Text="HTTP proxy: 127.0.0.1:8000" VerticalAlignment="Center" />
-        <Button Grid.Column="7" Classes="danger" Content="🗑  Clear logs" Command="{Binding ClearLogsCommand}" />
+        <Button Grid.Column="7" Classes="toolbar danger" Content="🗑  Clear logs" Command="{Binding ClearLogsCommand}" VerticalAlignment="Center" />
       </Grid>
     </Border>
 
@@ -262,7 +287,7 @@
                   <Grid Grid.Row="2" RowDefinitions="Auto,*">
                     <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
                       <TextBlock Text="Body" FontWeight="SemiBold" VerticalAlignment="Center" />
-                      <Button Grid.Column="1" Content="⋯" Padding="9,0" ToolTip.Tip="Body actions">
+                      <Button Grid.Column="1" Classes="bodyAction" Content="⋯" ToolTip.Tip="Body actions">
                         <Button.Flyout>
                           <MenuFlyout>
                             <MenuItem Header="Copy to clipboard" Click="OnCopyRequestBodyClick" />
@@ -298,7 +323,7 @@
                   <Grid Grid.Row="2" RowDefinitions="Auto,*">
                     <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
                       <TextBlock Text="Body" FontWeight="SemiBold" VerticalAlignment="Center" />
-                      <Button Grid.Column="1" Content="⋯" Padding="9,0" ToolTip.Tip="Body actions">
+                      <Button Grid.Column="1" Classes="bodyAction" Content="⋯" ToolTip.Tip="Body actions">
                         <Button.Flyout>
                           <MenuFlyout>
                             <MenuItem Header="Copy to clipboard" Click="OnCopyResponseBodyClick" />
