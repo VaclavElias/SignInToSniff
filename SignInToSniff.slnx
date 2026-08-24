@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="src/SignInToSniff.Core/SignInToSniff.Core.csproj" />
+  <Project Path="src/SignInToSniff/SignInToSniff.csproj" />
+  <Project Path="tests/SignInToSniff.Tests/SignInToSniff.Tests.csproj" />
+</Solution>

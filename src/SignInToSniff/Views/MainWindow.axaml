@@ -1,0 +1,178 @@
+<Window
+    x:Class="SignInToSniff.Views.MainWindow"
+    x:DataType="vm:MainViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:models="using:SignInToSniff.Models"
+    xmlns:vm="using:SignInToSniff.ViewModels"
+    Title="SignInToSniff"
+    Width="1280"
+    Height="780"
+    MinWidth="980"
+    MinHeight="620"
+    Background="#F4F6F8">
+
+  <Window.Styles>
+    <Style Selector="TextBlock.heading">
+      <Setter Property="FontSize" Value="20" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="#172033" />
+    </Style>
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Foreground" Value="#657084" />
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderBrush" Value="#DDE2EA" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="#1769E0" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Padding" Value="15,8" />
+    </Style>
+    <Style Selector="Button.danger">
+      <Setter Property="Foreground" Value="#A8262D" />
+      <Setter Property="Padding" Value="12,8" />
+    </Style>
+    <Style Selector="TextBox.payload">
+      <Setter Property="FontFamily" Value="Cascadia Mono,Consolas,monospace" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Background" Value="#F8FAFC" />
+      <Setter Property="BorderBrush" Value="#E1E6ED" />
+      <Setter Property="Padding" Value="12" />
+    </Style>
+    <Style Selector="ListBoxItem">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0,0,0,2" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,Auto,*">
+    <Menu Grid.Row="0" Background="White">
+      <MenuItem Header="_View">
+        <MenuItem Header="Show _time column" ToggleType="CheckBox" IsChecked="{Binding ShowTimeColumn, Mode=TwoWay}" />
+        <MenuItem Header="Show _newest requests first" ToggleType="CheckBox" IsChecked="{Binding NewestFirst, Mode=TwoWay}" />
+      </MenuItem>
+    </Menu>
+
+    <Border Grid.Row="1" Background="White" BorderBrush="#DDE2EA" BorderThickness="0,0,0,1" Padding="20,15">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          <Border Width="36" Height="36" CornerRadius="8" Background="#1769E0">
+            <TextBlock Text="S" Foreground="White" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <StackPanel>
+            <TextBlock Classes="heading" Text="SignInToSniff" />
+            <TextBlock Classes="muted" FontSize="12" Text="Local HTTP(S) traffic inspector" />
+          </StackPanel>
+          <Border Margin="14,0,0,0" Padding="9,4" CornerRadius="12" Background="#FFF2D6">
+            <TextBlock Text="●  Proxy offline" Foreground="#805A00" FontSize="12" FontWeight="SemiBold" />
+          </Border>
+          <TextBlock Classes="muted" Text="127.0.0.1:8000" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+          <Button Content="Certificate" IsEnabled="False" ToolTip.Tip="Certificate controls arrive in milestone 4." />
+          <Button Content="Stop" IsEnabled="False" />
+          <Button Classes="primary" Content="Start Proxy" IsEnabled="False" ToolTip.Tip="Live proxy startup arrives in milestone 2." />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="2" Background="White" BorderBrush="#DDE2EA" BorderThickness="0,0,0,1" Padding="20,12">
+      <Grid ColumnDefinitions="Auto,280,8,Auto,22,Auto,*,Auto,8,Auto">
+        <TextBlock Text="Filter by domain" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0" />
+        <TextBox Grid.Column="1" Text="{Binding DomainFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="example.com" />
+        <Button Grid.Column="3" Content="×" Command="{Binding ClearDomainFilterCommand}" ToolTip.Tip="Clear domain filter" Padding="10,4" />
+        <ToggleSwitch Grid.Column="5" IsChecked="{Binding AutoScroll}" Content="Auto-scroll to newest" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="6" Classes="muted" Text="{Binding SessionCountText}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,16,0" />
+        <Button Grid.Column="7" Content="＋ Add demo request" Command="{Binding AddSampleCommand}" />
+        <Button Grid.Column="9" Classes="danger" Content="🗑  Clear logs" Command="{Binding ClearLogsCommand}" />
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="3" ColumnDefinitions="440,8,*" Margin="16">
+      <Border Grid.Column="0" Classes="card" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*">
+          <Grid Margin="14,11" ColumnDefinitions="64,56,*,Auto">
+            <TextBlock Text="METHOD" Classes="muted" FontSize="11" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="1" Text="STATUS" Classes="muted" FontSize="11" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="2" Text="DESTINATION" Classes="muted" FontSize="11" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="3" Text="TIME" Classes="muted" FontSize="11" FontWeight="SemiBold" IsVisible="{Binding ShowTimeColumn}" />
+          </Grid>
+
+          <ListBox
+              x:Name="SessionList"
+              Grid.Row="1"
+              Margin="5,0,5,5"
+              ItemsSource="{Binding Sessions}"
+              SelectedItem="{Binding SelectedSession}">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="models:CapturedSession">
+                <Grid ColumnDefinitions="64,56,*,Auto" Margin="9,10">
+                  <TextBlock Text="{Binding Method}" Foreground="#1769E0" FontWeight="Bold" FontSize="12" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{Binding StatusText}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="2" Margin="4,0,12,0">
+                    <TextBlock Text="{Binding Host}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Url}" Classes="muted" FontSize="11" TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="3" IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).ShowTimeColumn}" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding StartedAtText}" Classes="muted" FontSize="11" HorizontalAlignment="Right" />
+                    <TextBlock Text="{Binding DurationText}" Classes="muted" FontSize="10" HorizontalAlignment="Right" />
+                  </StackPanel>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </Border>
+
+      <GridSplitter Grid.Column="1" Background="Transparent" ResizeDirection="Columns" />
+
+      <Border Grid.Column="2" Classes="card" Padding="18">
+        <Grid>
+          <StackPanel IsVisible="{Binding !HasSessions}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+            <TextBlock Text="No captured requests" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
+            <TextBlock Classes="muted" Text="Add demo traffic or clear the domain filter." />
+          </StackPanel>
+
+          <Grid IsVisible="{Binding HasSessions}" RowDefinitions="Auto,12,*">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel>
+                <TextBlock Text="{Binding SelectedSession.Method}" Foreground="#1769E0" FontWeight="Bold" />
+                <SelectableTextBlock Text="{Binding SelectedSession.Url}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,4,12,0" />
+              </StackPanel>
+              <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                <TextBlock Text="{Binding SelectedSession.StatusText}" FontSize="22" FontWeight="Bold" HorizontalAlignment="Right" />
+                <TextBlock Text="{Binding SelectedSession.DurationText}" Classes="muted" HorizontalAlignment="Right" />
+              </StackPanel>
+            </Grid>
+
+            <TabControl Grid.Row="2">
+              <TabItem Header="Request">
+                <Grid RowDefinitions="Auto,140,12,Auto,*" Margin="0,14,0,0">
+                  <TextBlock Text="Headers" FontWeight="SemiBold" Margin="0,0,0,6" />
+                  <TextBox Grid.Row="1" Classes="payload" Text="{Binding SelectedSession.RequestHeaders}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" />
+                  <TextBlock Grid.Row="3" Text="Body" FontWeight="SemiBold" Margin="0,0,0,6" />
+                  <TextBox Grid.Row="4" Classes="payload" Text="{Binding SelectedSession.RequestBody}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" />
+                </Grid>
+              </TabItem>
+              <TabItem Header="Response">
+                <Grid RowDefinitions="Auto,140,12,Auto,*" Margin="0,14,0,0">
+                  <TextBlock Text="Headers" FontWeight="SemiBold" Margin="0,0,0,6" />
+                  <TextBox Grid.Row="1" Classes="payload" Text="{Binding SelectedSession.ResponseHeaders}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" />
+                  <TextBlock Grid.Row="3" Text="Body" FontWeight="SemiBold" Margin="0,0,0,6" />
+                  <TextBox Grid.Row="4" Classes="payload" Text="{Binding SelectedSession.ResponseBody}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" />
+                </Grid>
+              </TabItem>
+            </TabControl>
+          </Grid>
+        </Grid>
+      </Border>
+    </Grid>
+  </Grid>
+</Window>
