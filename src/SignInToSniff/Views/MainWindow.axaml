@@ -139,7 +139,7 @@
               SelectedItem="{Binding SelectedSession}">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="models:CapturedSession">
-                <Grid ColumnDefinitions="64,56,*,Auto,Auto" Margin="9,10">
+                <Grid ColumnDefinitions="64,56,*,Auto,Auto" Margin="9,10" Background="Transparent">
                   <Grid.ContextMenu>
                     <ContextMenu>
                       <MenuItem Header="Delete request" Click="OnDeleteSessionClick" />

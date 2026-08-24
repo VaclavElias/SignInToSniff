@@ -19,7 +19,6 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     private readonly IExclusionStore _exclusionStore;
     private bool _disposed;
     private int _totalCaptured;
-    private int _excludedSessionCount;
 
     [ObservableProperty] private string _domainFilter = string.Empty;
     [ObservableProperty] private bool _autoScroll = true;
@@ -65,7 +64,7 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     public bool CanStartProxy => ProxyState is ProxyState.Stopped or ProxyState.Faulted;
     public bool CanStopProxy => ProxyState == ProxyState.Running;
     public string TotalCapturedText => $"Total captured: {_totalCaptured:N0}";
-    public string HiddenRequestsText => $"Hidden: {_excludedSessionCount + Math.Max(0, _allSessions.Count - Sessions.Count):N0}";
+    public string HiddenRequestsText => $"Hidden: {Math.Max(0, _allSessions.Count - Sessions.Count):N0}";
     public string ExclusionCountText => $"Exclusion rules: {Exclusions.Count:N0}";
 
     public void DeleteSession(CapturedSession session)
@@ -102,14 +101,14 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
             }
         }
         if (!Exclusions.Contains(rule)) Exclusions.Add(rule);
-        RemoveExcludedSessions();
+        ApplyFilter();
         await PersistExclusionsAsync();
     }
 
     public async Task RemoveExclusionAsync(ExclusionRule rule)
     {
         Exclusions.Remove(rule);
-        NotifyCollectionSummaryChanged();
+        ApplyFilter();
         await PersistExclusionsAsync();
     }
 
@@ -178,7 +177,6 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
         _allSessions.Clear();
         Sessions.Clear();
         _totalCaptured = 0;
-        _excludedSessionCount = 0;
         SelectedSession = null;
         NotifyCollectionSummaryChanged();
     }
@@ -211,12 +209,6 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     private void AddSession(CapturedSession session)
     {
         _totalCaptured++;
-        if (IsExcluded(session.Host))
-        {
-            _excludedSessionCount++;
-            NotifyCollectionSummaryChanged();
-            return;
-        }
         _allSessions.Add(session);
         if (_allSessions.Count > SessionLimit)
         {
@@ -267,19 +259,6 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
         || session.Host.Contains(DomainFilter.Trim(), StringComparison.OrdinalIgnoreCase));
 
     private bool IsExcluded(string host) => Exclusions.Any(rule => rule.Matches(host));
-
-    private void RemoveExcludedSessions()
-    {
-        var removedCount = _allSessions.Count(session => IsExcluded(session.Host));
-        _excludedSessionCount += removedCount;
-        _allSessions.RemoveAll(session => IsExcluded(session.Host));
-        for (var index = Sessions.Count - 1; index >= 0; index--)
-        {
-            if (IsExcluded(Sessions[index].Host)) Sessions.RemoveAt(index);
-        }
-        if (SelectedSession is not null && IsExcluded(SelectedSession.Host)) SelectedSession = Sessions.FirstOrDefault();
-        NotifyCollectionSummaryChanged();
-    }
 
     private static string NormalizeDomain(string domain)
     {
