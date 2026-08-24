@@ -139,6 +139,7 @@ public sealed class MainViewModelTests
         Assert.Equal("Total captured: 3", viewModel.TotalCapturedText);
         Assert.Equal("Hidden: 2", viewModel.HiddenRequestsText);
         Assert.Equal("Exclusion rules: 1", viewModel.ExclusionCountText);
+        Assert.Equal(2, viewModel.Exclusions[0].MatchCount);
 
         await viewModel.RemoveExclusionAsync(viewModel.Exclusions[0]);
 

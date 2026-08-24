@@ -73,6 +73,7 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
         var visible = Sessions.FirstOrDefault(item => item.Id == session.Id);
         if (visible is not null) Sessions.Remove(visible);
         if (removed && _totalCaptured > 0) _totalCaptured--;
+        UpdateExclusionMatchCounts();
         if (SelectedSession?.Id == session.Id) SelectedSession = Sessions.FirstOrDefault();
         NotifyCollectionSummaryChanged();
     }
@@ -217,6 +218,7 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
             var visibleExpired = Sessions.FirstOrDefault(item => item.Id == expired.Id);
             if (visibleExpired is not null) Sessions.Remove(visibleExpired);
         }
+        UpdateExclusionMatchCounts();
 
         if (MatchesFilter(session))
         {
@@ -245,6 +247,7 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
 
     private void ApplyFilter()
     {
+        UpdateExclusionMatchCounts();
         var selectedId = SelectedSession?.Id;
         Sessions.Clear();
         var matching = _allSessions.Where(MatchesFilter);
@@ -259,6 +262,14 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
         || session.Host.Contains(DomainFilter.Trim(), StringComparison.OrdinalIgnoreCase));
 
     private bool IsExcluded(string host) => Exclusions.Any(rule => rule.Matches(host));
+
+    private void UpdateExclusionMatchCounts()
+    {
+        foreach (var rule in Exclusions)
+        {
+            rule.SetMatchCount(_allSessions.Count(session => rule.Matches(session.Host)));
+        }
+    }
 
     private static string NormalizeDomain(string domain)
     {

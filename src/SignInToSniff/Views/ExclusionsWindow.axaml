@@ -27,7 +27,10 @@
             <Grid ColumnDefinitions="*,Auto" Margin="10,7">
               <StackPanel>
                 <TextBlock Text="{Binding DisplayText}" FontWeight="SemiBold" />
-                <TextBlock Text="{Binding Scope}" FontSize="11" Foreground="#657084" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="{Binding Scope}" FontSize="11" Foreground="#657084" />
+                  <TextBlock Text="{Binding MatchCountText}" FontSize="11" Foreground="#1769E0" FontWeight="SemiBold" />
+                </StackPanel>
               </StackPanel>
               <Button Grid.Column="1" Content="Remove" Click="OnRemoveClick" />
             </Grid>

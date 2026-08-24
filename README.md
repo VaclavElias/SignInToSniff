@@ -45,7 +45,7 @@ The generated root certificate and private key are persisted in the current user
 
 ### Exclusions
 
-Exclusions hide matching traffic from the capture list; they do not block or reroute the request. **Exact host** matches only the named host. **Domain and subdomains** matches the named site domain and every host below it. Rules are stored in `SignInToSniff/exclusions.json` under the current user's local application-data directory and restored when the app starts.
+Exclusions hide matching traffic from the capture list; they do not block or reroute the request. Hidden requests remain in the bounded in-memory session so removing a rule restores them during the same app session. The exclusions window shows how many retained requests each rule currently hides. **Exact host** matches only the named host. **Domain and subdomains** matches the named site domain and every host below it. Rules are stored in `SignInToSniff/exclusions.json` under the current user's local application-data directory and restored when the app starts.
 
 ### Fresh Terminal
 
