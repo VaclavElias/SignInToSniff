@@ -161,6 +161,26 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
+    public async Task SearchScope_CanMatchFileExtensionWithoutQueryStringNoise()
+    {
+        var (viewModel, engine) = CreateViewModel();
+        engine.Add(CreateSession("images.example") with { Url = "https://images.example/photo.JPG?format=png" });
+        engine.Add(CreateSession("images.example") with { Url = "https://images.example/no-extension?file=jpg" });
+        viewModel.SearchHost = false;
+        viewModel.SearchUrl = false;
+        viewModel.SearchMethodStatus = false;
+        viewModel.SearchHeaders = false;
+        viewModel.SearchBodies = false;
+        viewModel.SearchMetadata = false;
+        viewModel.SearchQuery = "jpg";
+
+        await Task.Delay(300, TestContext.Current.CancellationToken);
+
+        var match = Assert.Single(viewModel.Sessions);
+        Assert.EndsWith("photo.JPG?format=png", match.Url, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SearchScopeBulkAction_SelectsAndDeselectsAllScopes()
     {
         var (viewModel, _) = CreateViewModel();
@@ -170,6 +190,7 @@ public sealed class MainViewModelTests
 
         Assert.False(viewModel.SearchHost);
         Assert.False(viewModel.SearchUrl);
+        Assert.False(viewModel.SearchFileExtension);
         Assert.False(viewModel.SearchMethodStatus);
         Assert.False(viewModel.SearchHeaders);
         Assert.False(viewModel.SearchBodies);
@@ -180,7 +201,7 @@ public sealed class MainViewModelTests
         Assert.Equal("Select all", viewModel.SearchScopeBulkActionText);
 
         viewModel.ToggleAllSearchScopesCommand.Execute(null);
-        Assert.True(viewModel.SearchHost && viewModel.SearchUrl && viewModel.SearchMethodStatus &&
+        Assert.True(viewModel.SearchHost && viewModel.SearchUrl && viewModel.SearchFileExtension && viewModel.SearchMethodStatus &&
                     viewModel.SearchHeaders && viewModel.SearchBodies && viewModel.SearchMetadata);
         Assert.Equal("Deselect all", viewModel.SearchScopeBulkActionText);
     }

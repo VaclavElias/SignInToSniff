@@ -237,7 +237,8 @@ public sealed class TitaniumProxyEngine : IProxyEngine
             response.ContentLength,
             BodyCaptureFormatter.FindHeader(headers, "Content-Type"),
             eventArgs.GetResponseBody,
-            "response").ConfigureAwait(false);
+            "response",
+            allowImagePreview: true).ConfigureAwait(false);
         var completed = state.Session with
         {
             StatusCode = response.StatusCode,
@@ -246,6 +247,8 @@ public sealed class TitaniumProxyEngine : IProxyEngine
             ResponseSizeBytes = response.ContentLength > 0 ? response.ContentLength : responseBody.ByteCount,
             Protocol = FormatProtocol(response.HttpVersion),
             SentBytes = GetCapturedSize(formattedHeaders, response.ContentLength, responseBody.ByteCount),
+            ResponseImageBytes = responseBody.ImageBytes,
+            ResponseContentType = responseBody.ContentType,
             DurationMilliseconds = state.Stopwatch.ElapsedMilliseconds
         };
 
@@ -279,9 +282,41 @@ public sealed class TitaniumProxyEngine : IProxyEngine
         long contentLength,
         string? contentType,
         Func<CancellationToken, Task<byte[]>> readBody,
-        string direction)
+        string direction,
+        bool allowImagePreview = false)
     {
         if (!hasBody) return new BodyCaptureResult($"No {direction} body", 0);
+        var mediaType = (contentType ?? string.Empty).Split(';', 2)[0].Trim().ToLowerInvariant();
+        if (allowImagePreview && mediaType.StartsWith("image/", StringComparison.Ordinal))
+        {
+            if (contentLength <= 0)
+            {
+                return new BodyCaptureResult("[Image preview omitted: response size is unknown.]", null);
+            }
+            if (contentLength > BodyCaptureFormatter.MaxCapturedBodyBytes)
+            {
+                return new BodyCaptureResult(
+                    $"[Image preview omitted: declared size {contentLength:N0} bytes exceeds the 1 MiB preview limit.]",
+                    contentLength);
+            }
+            try
+            {
+                var imageBytes = await readBody(CancellationToken.None).ConfigureAwait(false);
+                if (imageBytes.Length > BodyCaptureFormatter.MaxCapturedBodyBytes)
+                {
+                    return new BodyCaptureResult("[Image preview omitted: decoded data exceeds the 1 MiB preview limit.]", imageBytes.LongLength);
+                }
+                return new BodyCaptureResult(
+                    $"[Image preview: {mediaType}, {imageBytes.Length:N0} bytes]",
+                    imageBytes.LongLength,
+                    imageBytes,
+                    mediaType);
+            }
+            catch (Exception exception)
+            {
+                return new BodyCaptureResult($"[Image preview capture failed: {exception.Message}]", null);
+            }
+        }
         if (!BodyCaptureFormatter.ShouldRead(contentType, contentLength, out var omissionReason))
         {
             return new BodyCaptureResult(omissionReason!, contentLength > 0 ? contentLength : null);
@@ -375,7 +410,11 @@ public sealed class TitaniumProxyEngine : IProxyEngine
         public CapturedSession Session { get; set; } = session;
         public Stopwatch Stopwatch { get; } = stopwatch;
     }
-    private sealed record BodyCaptureResult(string Text, long? ByteCount);
+    private sealed record BodyCaptureResult(
+        string Text,
+        long? ByteCount,
+        byte[]? ImageBytes = null,
+        string? ContentType = null);
 
     private static ProxyServer CreateProxyServer()
     {

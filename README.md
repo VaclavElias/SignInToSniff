@@ -20,9 +20,9 @@ dotnet run --project src/SignInToSniff/SignInToSniff.csproj
 1. Launch SignInToSniff and click **Start Proxy**.
 2. Open **Intercept** and choose a client, or configure your own HTTP client to use `127.0.0.1:8000`.
 3. Browse or send requests to an `http://` address.
-4. Select a captured request to inspect its URL, headers, body, status, response size, and duration.
-5. Use global search, ordering options, auto-scroll, and the draggable Headers/Body splitter as needed. Search terms are combined with AND, so `google.com POST json` requires all three terms to match across the enabled fields. Use the search cog to include or exclude host, URL, method/status, headers, bodies, or metadata; its adaptive **Select all/Deselect all** action changes every scope at once.
-6. Use the three-dot menu beside either Body heading to copy or download the displayed body.
+4. Select a captured request to inspect its URL, headers, body, status, response size, and duration. Small image responses are rendered directly in the Response Body pane.
+5. Use global search, ordering options, auto-scroll, and the draggable Headers/Body splitter as needed. Search terms are combined with AND, so `google.com POST json` requires all three terms to match across the enabled fields. Use the search cog to include or exclude host, URL, file extension, method/status, headers, bodies, or metadata; its adaptive **Select all/Deselect all** action changes every scope at once. Select only **File extension** to find resources such as `JPG` regardless of letter case; query-string values are ignored for this scope.
+6. Use the three-dot menu beside either Body heading to copy or download the displayed body. Image downloads preserve the original response bytes and use an extension based on the response content type.
 7. Right-click a captured request to delete it, exclude its exact host, or exclude its site domain and all subdomains.
 8. Open **Tools -> Manage exclusions** to add, review, or remove persistent exclusion rules.
 9. Click **Stop** when finished.
@@ -71,7 +71,7 @@ Set the client's HTTP proxy to `http://127.0.0.1:8000`. For example, from a regu
 Invoke-WebRequest http://example.com -Proxy http://127.0.0.1:8000
 ```
 
-Text body capture is limited to 1 MiB per request or response; known binary, streaming, and oversized bodies are intentionally omitted. SignInToSniff does not modify the Windows system proxy, and clients will lose proxy connectivity if they remain configured after SignInToSniff stops.
+Text body capture is limited to 1 MiB per request or response. Image responses with a declared size up to 1 MiB are retained for a downscaled preview; images with an unknown or larger declared size and other known binary or streaming bodies are intentionally omitted. SignInToSniff does not modify the Windows system proxy, and clients will lose proxy connectivity if they remain configured after SignInToSniff stops.
 
 ### Manual verification
 
@@ -88,6 +88,7 @@ Text body capture is limited to 1 MiB per request or response; known binary, str
 11. Drag the horizontal splitter between Headers and Body in both detail tabs and confirm either section can be expanded.
 12. Visit an HTTP page and confirm its HTML appears under **Response -> Body**.
 13. From Fresh Terminal, send a small HTTP POST and confirm its payload appears under **Request -> Body**.
+14. Visit a direct PNG or JPEG URL smaller than 1 MiB, select its request, and confirm the image appears under **Response -> Body**. Use its three-dot menu to download the original image.
 
 The disabled Main Chrome option is reserved for a later implementation that must show a confirmation before closing or relaunching the normal profile.
 
@@ -95,7 +96,7 @@ The disabled Main Chrome option is reserved for a later implementation that must
 
 ```powershell
 dotnet build SignInToSniff.slnx
-dotnet test tests/SignInToSniff.Tests/SignInToSniff.Tests.csproj
+dotnet test --project tests/SignInToSniff.Tests/SignInToSniff.Tests.csproj
 ```
 
-The next milestone will refine HTTPS diagnostics, certificate lifecycle handling, and cross-platform trust guidance after manual verification.
+The current prototype includes HTTPS diagnostics, persistent passthrough rules, and bounded image-response previews.

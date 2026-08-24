@@ -3,9 +3,11 @@ using Avalonia.Input.Platform;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using System.ComponentModel;
 using System.Text;
 using SignInToSniff.Models;
 using SignInToSniff.ViewModels;
@@ -15,6 +17,8 @@ namespace SignInToSniff.Views;
 public sealed partial class MainWindow : Window
 {
     private MainViewModel? _viewModel;
+    private Bitmap? _responsePreviewBitmap;
+    private int _previewLoadVersion;
 
     public MainWindow()
     {
@@ -41,6 +45,8 @@ public sealed partial class MainWindow : Window
 
         _viewModel = viewModel;
         viewModel.VisibleSessionAdded += OnVisibleSessionAdded;
+        viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        _ = LoadResponsePreviewAsync(viewModel.SelectedSession);
     }
 
     private void OnUnloaded(object? sender, RoutedEventArgs e)
@@ -48,8 +54,63 @@ public sealed partial class MainWindow : Window
         if (_viewModel is not null)
         {
             _viewModel.VisibleSessionAdded -= OnVisibleSessionAdded;
+            _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
             _viewModel = null;
         }
+
+        ClearResponsePreview();
+    }
+
+    private async void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.SelectedSession))
+        {
+            await LoadResponsePreviewAsync(_viewModel?.SelectedSession);
+        }
+    }
+
+    private async Task LoadResponsePreviewAsync(CapturedSession? session)
+    {
+        var loadVersion = ++_previewLoadVersion;
+        var bytes = session?.ResponseImageBytes;
+        if (bytes is null)
+        {
+            ClearResponsePreview(incrementVersion: false);
+            return;
+        }
+
+        Bitmap? bitmap = null;
+        try
+        {
+            bitmap = await Task.Run(() =>
+            {
+                using var stream = new MemoryStream(bytes, writable: false);
+                return Bitmap.DecodeToWidth(stream, 1200);
+            });
+        }
+        catch
+        {
+            // A malformed or unsupported image should never disrupt request inspection.
+        }
+
+        if (loadVersion != _previewLoadVersion || bitmap is null)
+        {
+            bitmap?.Dispose();
+            return;
+        }
+
+        var previous = _responsePreviewBitmap;
+        _responsePreviewBitmap = bitmap;
+        ResponseImagePreview.Source = bitmap;
+        previous?.Dispose();
+    }
+
+    private void ClearResponsePreview(bool incrementVersion = true)
+    {
+        if (incrementVersion) _previewLoadVersion++;
+        ResponseImagePreview.Source = null;
+        _responsePreviewBitmap?.Dispose();
+        _responsePreviewBitmap = null;
     }
 
     private void OnVisibleSessionAdded(object? sender, CapturedSession newest)
@@ -105,9 +166,12 @@ public sealed partial class MainWindow : Window
     private async Task DownloadBodyAsync(CapturedSession? session, bool isResponse)
     {
         if (session is null) return;
+        var imageBytes = isResponse ? session.ResponseImageBytes : null;
         var body = isResponse ? session.ResponseBody : session.RequestBody;
         var headers = isResponse ? session.ResponseHeaders : session.RequestHeaders;
-        var extension = headers.Contains("json", StringComparison.OrdinalIgnoreCase) ? ".json" : ".txt";
+        var extension = imageBytes is not null
+            ? GetImageExtension(session.ResponseContentType)
+            : headers.Contains("json", StringComparison.OrdinalIgnoreCase) ? ".json" : ".txt";
         var direction = isResponse ? "response" : "request";
         var safeHost = string.Concat(session.Host.Select(character =>
             Path.GetInvalidFileNameChars().Contains(character) ? '_' : character));
@@ -118,7 +182,7 @@ public sealed partial class MainWindow : Window
             SuggestedFileName = $"{safeHost}-{direction}-body{extension}",
             FileTypeChoices =
             [
-                new FilePickerFileType(extension == ".json" ? "JSON" : "Text")
+                new FilePickerFileType(imageBytes is not null ? "Image" : extension == ".json" ? "JSON" : "Text")
                 {
                     Patterns = [$"*{extension}"]
                 },
@@ -129,9 +193,27 @@ public sealed partial class MainWindow : Window
 
         await using var stream = await file.OpenWriteAsync();
         stream.SetLength(0);
+        if (imageBytes is not null)
+        {
+            await stream.WriteAsync(imageBytes);
+            return;
+        }
+
         await using var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         await writer.WriteAsync(body);
     }
+
+    private static string GetImageExtension(string? contentType) => contentType?.ToLowerInvariant() switch
+    {
+        "image/png" => ".png",
+        "image/jpeg" => ".jpg",
+        "image/gif" => ".gif",
+        "image/webp" => ".webp",
+        "image/bmp" => ".bmp",
+        "image/svg+xml" => ".svg",
+        "image/x-icon" or "image/vnd.microsoft.icon" => ".ico",
+        _ => ".img"
+    };
 
     private async void OnInstallUserCertificateClick(object? sender, RoutedEventArgs e) =>
         await ChangeCertificateTrustAsync(install: true, machineWide: false);

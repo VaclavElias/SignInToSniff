@@ -118,6 +118,7 @@
                 <Separator />
                 <MenuItem Header="Host" ToggleType="CheckBox" IsChecked="{Binding SearchHost, Mode=TwoWay}" />
                 <MenuItem Header="URL" ToggleType="CheckBox" IsChecked="{Binding SearchUrl, Mode=TwoWay}" />
+                <MenuItem Header="File extension" ToggleType="CheckBox" IsChecked="{Binding SearchFileExtension, Mode=TwoWay}" />
                 <MenuItem Header="Method and status" ToggleType="CheckBox" IsChecked="{Binding SearchMethodStatus, Mode=TwoWay}" />
                 <MenuItem Header="Request and response headers" ToggleType="CheckBox" IsChecked="{Binding SearchHeaders, Mode=TwoWay}" />
                 <MenuItem Header="Request and response bodies" ToggleType="CheckBox" IsChecked="{Binding SearchBodies, Mode=TwoWay}" />
@@ -289,7 +290,27 @@
                         </Button.Flyout>
                       </Button>
                     </Grid>
-                    <TextBox Grid.Row="1" Classes="payload" Text="{Binding SelectedSession.ResponseBody}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" />
+                    <Grid Grid.Row="1">
+                      <TextBox Classes="payload"
+                               Text="{Binding SelectedSession.ResponseBody}"
+                               IsVisible="{Binding !SelectedSession.HasImagePreview}"
+                               IsReadOnly="True"
+                               AcceptsReturn="True"
+                               TextWrapping="NoWrap" />
+                      <Border IsVisible="{Binding SelectedSession.HasImagePreview}"
+                              Background="#F4F6F9"
+                              BorderBrush="#DDE2EA"
+                              BorderThickness="1"
+                              CornerRadius="4"
+                              Padding="8">
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                          <Image x:Name="ResponseImagePreview"
+                                 Stretch="Uniform"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center" />
+                        </ScrollViewer>
+                      </Border>
+                    </Grid>
                   </Grid>
                 </Grid>
               </TabItem>

@@ -26,6 +26,7 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     [ObservableProperty] private string _searchQuery = string.Empty;
     [ObservableProperty] private bool _searchHost = true;
     [ObservableProperty] private bool _searchUrl = true;
+    [ObservableProperty] private bool _searchFileExtension = true;
     [ObservableProperty] private bool _searchMethodStatus = true;
     [ObservableProperty] private bool _searchHeaders = true;
     [ObservableProperty] private bool _searchBodies = true;
@@ -173,6 +174,7 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     partial void OnSearchQueryChanged(string value) => ScheduleSearchFilter();
     partial void OnSearchHostChanged(bool value) => OnSearchScopeChanged();
     partial void OnSearchUrlChanged(bool value) => OnSearchScopeChanged();
+    partial void OnSearchFileExtensionChanged(bool value) => OnSearchScopeChanged();
     partial void OnSearchMethodStatusChanged(bool value) => OnSearchScopeChanged();
     partial void OnSearchHeadersChanged(bool value) => OnSearchScopeChanged();
     partial void OnSearchBodiesChanged(bool value) => OnSearchScopeChanged();
@@ -222,6 +224,7 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
         _lastSearchBulkSelection = selectAll;
         SearchHost = selectAll;
         SearchUrl = selectAll;
+        SearchFileExtension = selectAll;
         SearchMethodStatus = selectAll;
         SearchHeaders = selectAll;
         SearchBodies = selectAll;
@@ -349,6 +352,7 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     private static bool MatchesSearchToken(CapturedSession session, string token, SearchOptions options) =>
         (options.Host && Contains(session.Host, token)) ||
         (options.Url && Contains(session.Url, token)) ||
+        (options.FileExtension && Contains(GetFileExtension(session.Url), token.TrimStart('.'))) ||
         (options.MethodStatus && (Contains(session.Method, token) || Contains(session.StatusText, token))) ||
         (options.Headers && (Contains(session.RequestHeaders, token) || Contains(session.ResponseHeaders, token))) ||
         (options.Bodies && (Contains(session.RequestBody, token) || Contains(session.ResponseBody, token))) ||
@@ -358,17 +362,25 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
 
     private static bool Contains(string value, string token) => value.Contains(token, StringComparison.OrdinalIgnoreCase);
 
+    private static string GetFileExtension(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return string.Empty;
+        return Path.GetExtension(uri.AbsolutePath).TrimStart('.');
+    }
+
     private static string[] GetSearchTokens(string query) =>
         query.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     private SearchOptions GetSearchOptions() => new(
-        SearchHost, SearchUrl, SearchMethodStatus, SearchHeaders, SearchBodies, SearchMetadata);
+        SearchHost, SearchUrl, SearchFileExtension, SearchMethodStatus, SearchHeaders, SearchBodies, SearchMetadata);
 
     private bool AllSearchScopesSelected =>
-        SearchHost && SearchUrl && SearchMethodStatus && SearchHeaders && SearchBodies && SearchMetadata;
+        SearchHost && SearchUrl && SearchFileExtension && SearchMethodStatus &&
+        SearchHeaders && SearchBodies && SearchMetadata;
 
     private bool NoSearchScopesSelected =>
-        !SearchHost && !SearchUrl && !SearchMethodStatus && !SearchHeaders && !SearchBodies && !SearchMetadata;
+        !SearchHost && !SearchUrl && !SearchFileExtension && !SearchMethodStatus &&
+        !SearchHeaders && !SearchBodies && !SearchMetadata;
 
     private void OnSearchScopeChanged()
     {
@@ -394,7 +406,7 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
             CapturedSession[] snapshot = [];
             ExclusionRule[] exclusions = [];
             string[] tokens = [];
-            SearchOptions options = new(true, true, true, true, true, true);
+            SearchOptions options = new(true, true, true, true, true, true, true);
             var newestFirst = false;
             await _dispatcher.InvokeAsync(() =>
             {
@@ -480,6 +492,7 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     private sealed record SearchOptions(
         bool Host,
         bool Url,
+        bool FileExtension,
         bool MethodStatus,
         bool Headers,
         bool Bodies,

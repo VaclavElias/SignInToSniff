@@ -112,6 +112,40 @@ public sealed class TitaniumProxyEngineTests
         Assert.Equal("compressed over proxy", responseUpdate.Session.ResponseBody);
     }
 
+    [Fact]
+    public async Task ExplicitHttpProxy_RetainsSmallImageResponseForPreview()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var imageBytes = Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+        var origin = new TcpListener(IPAddress.Loopback, 0);
+        origin.Start();
+        var originPort = ((IPEndPoint)origin.LocalEndpoint).Port;
+        var originTask = ServeImageResponseAsync(origin, imageBytes, timeout.Token);
+
+        await using var engine = new TitaniumProxyEngine();
+        var updated = new TaskCompletionSource<ProxyCaptureUpdate>(TaskCreationOptions.RunContinuationsAsynchronously);
+        engine.CaptureReceived += (_, update) =>
+        {
+            if (update.Kind == CaptureUpdateKind.Updated && update.Session.HasImagePreview)
+            {
+                updated.TrySetResult(update);
+            }
+        };
+        await engine.StartAsync(timeout.Token);
+
+        using var handler = new HttpClientHandler { Proxy = new WebProxy($"http://{engine.Endpoint}"), UseProxy = true };
+        using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(5) };
+        using var response = await client.GetAsync($"http://127.0.0.1:{originPort}/pixel.png", timeout.Token);
+        var responseUpdate = await updated.Task.WaitAsync(timeout.Token);
+        await originTask;
+
+        Assert.Equal("image/png", responseUpdate.Session.ResponseContentType);
+        Assert.Equal(imageBytes, responseUpdate.Session.ResponseImageBytes);
+        Assert.Contains("Image preview", responseUpdate.Session.ResponseBody, StringComparison.Ordinal);
+        Assert.Equal(imageBytes.Length, responseUpdate.Session.ResponseSizeBytes);
+    }
+
     private static async Task ServeSingleResponseAsync(TcpListener listener, CancellationToken cancellationToken)
     {
         try
@@ -182,6 +216,29 @@ public sealed class TitaniumProxyEngineTests
                 $"HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Encoding: gzip\r\nContent-Length: {bytes.Length}\r\nConnection: close\r\n\r\n");
             await stream.WriteAsync(headers, cancellationToken);
             await stream.WriteAsync(bytes, cancellationToken);
+        }
+        finally
+        {
+            listener.Stop();
+        }
+    }
+
+    private static async Task ServeImageResponseAsync(
+        TcpListener listener,
+        byte[] imageBytes,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var client = await listener.AcceptTcpClientAsync(cancellationToken);
+            await using var stream = client.GetStream();
+            using var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
+            while (!string.IsNullOrEmpty(await reader.ReadLineAsync(cancellationToken))) { }
+
+            var headers = Encoding.ASCII.GetBytes(
+                $"HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: {imageBytes.Length}\r\nConnection: close\r\n\r\n");
+            await stream.WriteAsync(headers, cancellationToken);
+            await stream.WriteAsync(imageBytes, cancellationToken);
         }
         finally
         {

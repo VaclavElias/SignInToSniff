@@ -18,6 +18,8 @@ public sealed record CapturedSession(
     public long ReceivedBytes { get; init; }
     public long SentBytes { get; init; }
     public string? ProxyError { get; init; }
+    public byte[]? ResponseImageBytes { get; init; }
+    public string? ResponseContentType { get; init; }
 
     public string StatusText => StatusCode?.ToString() ?? "…";
 
@@ -34,6 +36,8 @@ public sealed record CapturedSession(
     public string TransferText => $"Captured ↑ {ReceivedBytes:N0} B  ↓ {SentBytes:N0} B";
 
     public bool HasProxyError => !string.IsNullOrWhiteSpace(ProxyError);
+
+    public bool HasImagePreview => ResponseImageBytes is { Length: > 0 };
 
     public string StartedAtText => StartedAt.ToLocalTime().ToString("HH:mm:ss");
 
