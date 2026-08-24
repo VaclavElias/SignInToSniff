@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -129,5 +130,113 @@ public sealed partial class MainWindow : Window
         stream.SetLength(0);
         await using var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         await writer.WriteAsync(body);
+    }
+
+    private async void OnInstallUserCertificateClick(object? sender, RoutedEventArgs e) =>
+        await ChangeCertificateTrustAsync(install: true, machineWide: false);
+
+    private async void OnInstallMachineCertificateClick(object? sender, RoutedEventArgs e) =>
+        await ChangeCertificateTrustAsync(install: true, machineWide: true);
+
+    private async void OnRemoveUserCertificateClick(object? sender, RoutedEventArgs e) =>
+        await ChangeCertificateTrustAsync(install: false, machineWide: false);
+
+    private async void OnRemoveMachineCertificateClick(object? sender, RoutedEventArgs e) =>
+        await ChangeCertificateTrustAsync(install: false, machineWide: true);
+
+    private async Task ChangeCertificateTrustAsync(bool install, bool machineWide)
+    {
+        if (_viewModel is null) return;
+        var scope = machineWide ? "the whole local machine" : "your current user account";
+        var warning = install
+            ? $"Trust the SignInToSniff root certificate for {scope}?\n\nThis allows SignInToSniff to decrypt HTTPS traffic sent through its proxy. Only enable it on a device you control."
+            : $"Remove SignInToSniff certificate trust from {scope}?\n\nHTTPS inspection for that scope will stop after the proxy restarts.";
+        if (!await ShowConfirmationAsync(install ? "Enable HTTPS inspection" : "Remove HTTPS trust", warning)) return;
+
+        var result = install
+            ? await _viewModel.InstallCertificateAsync(machineWide)
+            : await _viewModel.RemoveCertificateAsync(machineWide);
+        await ShowNoticeAsync(result.Succeeded ? "Certificate updated" : "Certificate operation failed", result.Message);
+    }
+
+    private async Task<bool> ShowConfirmationAsync(string title, string message)
+    {
+        var dialog = CreateDialog(title, message, includeCancel: true);
+        return await dialog.ShowDialog<bool>(this);
+    }
+
+    private async Task ShowNoticeAsync(string title, string message)
+    {
+        var dialog = CreateDialog(title, message, includeCancel: false);
+        await dialog.ShowDialog<bool>(this);
+    }
+
+    private static Window CreateDialog(string title, string message, bool includeCancel)
+    {
+        var dialog = new Window
+        {
+            Title = title,
+            Width = 500,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+        var confirm = new Button { Content = includeCancel ? "Continue" : "OK", MinWidth = 90 };
+        confirm.Click += (_, _) => dialog.Close(true);
+        var buttons = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Spacing = 8,
+            Children = { confirm }
+        };
+        if (includeCancel)
+        {
+            var cancel = new Button { Content = "Cancel", MinWidth = 90 };
+            cancel.Click += (_, _) => dialog.Close(false);
+            buttons.Children.Insert(0, cancel);
+        }
+        dialog.Content = new StackPanel
+        {
+            Margin = new Avalonia.Thickness(22),
+            Spacing = 20,
+            Children =
+            {
+                new TextBlock { Text = message, TextWrapping = Avalonia.Media.TextWrapping.Wrap },
+                buttons
+            }
+        };
+        return dialog;
+    }
+
+    private void OnDeleteSessionClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel is not null && sender is MenuItem { DataContext: CapturedSession session })
+        {
+            _viewModel.DeleteSession(session);
+        }
+    }
+
+    private async void OnExcludeExactHostClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel is not null && sender is MenuItem { DataContext: CapturedSession session })
+        {
+            await _viewModel.ExcludeExactHostAsync(session);
+        }
+    }
+
+    private async void OnExcludeSiteDomainClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel is not null && sender is MenuItem { DataContext: CapturedSession session })
+        {
+            await _viewModel.ExcludeDomainAndSubdomainsAsync(session);
+        }
+    }
+
+    private async void OnManageExclusionsClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel is null) return;
+        var window = new ExclusionsWindow { DataContext = _viewModel };
+        await window.ShowDialog(this);
     }
 }

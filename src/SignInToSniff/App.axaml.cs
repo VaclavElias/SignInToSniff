@@ -6,6 +6,7 @@ using SignInToSniff.Views;
 using SignInToSniff.Proxy;
 using SignInToSniff.Threading;
 using SignInToSniff.Launching;
+using SignInToSniff.Persistence;
 
 namespace SignInToSniff;
 
@@ -22,7 +23,8 @@ public sealed partial class App : Application
                 DataContext = new MainViewModel(
                     new TitaniumProxyEngine(),
                     new AvaloniaUiDispatcher(),
-                    new WindowsClientLauncher())
+                    new WindowsClientLauncher(),
+                    new JsonExclusionStore())
             };
         }
 

@@ -2,9 +2,9 @@
 
 SignInToSniff is a staged, cross-platform desktop HTTP(S) traffic inspector built with .NET and Avalonia.
 
-## Current milestone: HTTP body capture
+## Current milestone: opt-in HTTPS inspection
 
-The app can deliberately start an HTTP proxy on `127.0.0.1:8000` and display request/response metadata, headers, and bounded text bodies. JSON is formatted for readability, and gzip, Brotli, and deflate response bodies are decoded for display. It never changes system proxy settings. **HTTPS decryption and certificate changes are not enabled yet.**
+The app can deliberately start an HTTP(S) proxy on `127.0.0.1:8000` and display request/response metadata, headers, and bounded text bodies. JSON is formatted for readability, and gzip, Brotli, and deflate response bodies are decoded for display. It never changes system proxy settings. HTTPS decryption is strictly opt-in and requires explicit certificate installation confirmation.
 
 ### Run
 
@@ -29,6 +29,16 @@ dotnet run --project src/SignInToSniff/SignInToSniff.csproj
 
 Choose **Intercept -> Fresh Chrome** to open an independent Chrome window already configured for interception. It uses a disposable profile and does not affect your normal Chrome profile or permanent Chrome settings.
 
+### HTTPS inspection
+
+1. Stop the proxy if it is running.
+2. Open **Certificate** and choose **Install for current user**. Read and accept the warning only on a device you control. Machine-wide installation is also available on Windows and requires UAC elevation.
+3. Start the proxy again, then launch Fresh Chrome.
+4. Visit an `https://` page and confirm its requests, headers, and text bodies appear.
+5. When HTTPS inspection is no longer wanted, stop the proxy and use the matching **Remove … trust** command. Machine-wide removal requires UAC on Windows.
+
+The generated root certificate and private key are persisted in the current user's local application-data directory so the same trusted identity is reused across restarts. Trust-store changes are never performed at startup or without the confirmation dialog.
+
 ### Fresh Terminal
 
 Choose **Intercept -> Fresh Terminal** to open a new Windows Terminal window using your configured default profile. Proxy environment variables apply only to that terminal and programs launched from it.
@@ -47,7 +57,7 @@ Set the client's HTTP proxy to `http://127.0.0.1:8000`. For example, from a regu
 Invoke-WebRequest http://example.com -Proxy http://127.0.0.1:8000
 ```
 
-This milestone captures unencrypted HTTP only. Text body capture is limited to 1 MiB per request or response; known binary, streaming, and oversized bodies are intentionally omitted. SignInToSniff does not modify the Windows system proxy, and clients will lose proxy connectivity if they remain configured after SignInToSniff stops.
+Text body capture is limited to 1 MiB per request or response; known binary, streaming, and oversized bodies are intentionally omitted. SignInToSniff does not modify the Windows system proxy, and clients will lose proxy connectivity if they remain configured after SignInToSniff stops.
 
 ### Manual verification
 
@@ -74,4 +84,4 @@ dotnet build SignInToSniff.slnx
 dotnet test tests/SignInToSniff.Tests/SignInToSniff.Tests.csproj
 ```
 
-Milestone 4 will add opt-in HTTPS decryption and carefully scoped certificate management.
+The next milestone will refine HTTPS diagnostics, certificate lifecycle handling, and cross-platform trust guidance after manual verification.

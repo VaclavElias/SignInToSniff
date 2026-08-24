@@ -21,6 +21,13 @@ public sealed record ProxyCaptureUpdate(CaptureUpdateKind Kind, CapturedSession 
 
 public sealed record ProxyStateChanged(ProxyState State, string? ErrorMessage = null);
 
+public sealed record CertificateStatus(bool Exists, bool UserTrusted, bool MachineTrusted)
+{
+    public bool HttpsReady => UserTrusted || MachineTrusted;
+}
+
+public sealed record CertificateOperationResult(bool Succeeded, string Message, CertificateStatus Status);
+
 public interface IProxyEngine : IAsyncDisposable
 {
     string Endpoint { get; }
@@ -34,4 +41,10 @@ public interface IProxyEngine : IAsyncDisposable
     Task StartAsync(CancellationToken cancellationToken = default);
 
     Task StopAsync(CancellationToken cancellationToken = default);
+
+    Task<CertificateStatus> GetCertificateStatusAsync(CancellationToken cancellationToken = default);
+
+    Task<CertificateOperationResult> InstallCertificateAsync(bool machineWide, CancellationToken cancellationToken = default);
+
+    Task<CertificateOperationResult> RemoveCertificateAsync(bool machineWide, CancellationToken cancellationToken = default);
 }

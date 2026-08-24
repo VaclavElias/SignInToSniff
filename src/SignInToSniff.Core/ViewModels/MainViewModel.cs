@@ -5,6 +5,7 @@ using SignInToSniff.Models;
 using SignInToSniff.Proxy;
 using SignInToSniff.Threading;
 using SignInToSniff.Launching;
+using SignInToSniff.Exclusions;
 
 namespace SignInToSniff.ViewModels;
 
@@ -15,6 +16,7 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     private readonly IProxyEngine _proxyEngine;
     private readonly IUiDispatcher _dispatcher;
     private readonly IClientLauncher _clientLauncher;
+    private readonly IExclusionStore _exclusionStore;
     private bool _disposed;
 
     [ObservableProperty] private string _domainFilter = string.Empty;
@@ -25,18 +27,23 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     [ObservableProperty] private CapturedSession? _selectedSession;
     [ObservableProperty] private ProxyState _proxyState;
     [ObservableProperty] private string? _errorMessage;
+    [ObservableProperty] private string _certificateStatusText = "Certificate status unknown";
 
-    public MainViewModel(IProxyEngine proxyEngine, IUiDispatcher dispatcher, IClientLauncher clientLauncher)
+    public MainViewModel(IProxyEngine proxyEngine, IUiDispatcher dispatcher, IClientLauncher clientLauncher, IExclusionStore exclusionStore)
     {
         _proxyEngine = proxyEngine;
         _dispatcher = dispatcher;
         _clientLauncher = clientLauncher;
+        _exclusionStore = exclusionStore;
+        foreach (var rule in exclusionStore.Load().Distinct()) Exclusions.Add(rule);
         ProxyState = proxyEngine.State;
         proxyEngine.CaptureReceived += OnCaptureReceived;
         proxyEngine.StateChanged += OnProxyStateChanged;
+        _ = RefreshCertificateStatusAsync();
     }
 
     public ObservableCollection<CapturedSession> Sessions { get; } = [];
+    public ObservableCollection<ExclusionRule> Exclusions { get; } = [];
 
     public event EventHandler<CapturedSession>? VisibleSessionAdded;
 
@@ -55,6 +62,59 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
     public bool CanStartProxy => ProxyState is ProxyState.Stopped or ProxyState.Faulted;
     public bool CanStopProxy => ProxyState == ProxyState.Running;
+
+    public void DeleteSession(CapturedSession session)
+    {
+        _allSessions.RemoveAll(item => item.Id == session.Id);
+        var visible = Sessions.FirstOrDefault(item => item.Id == session.Id);
+        if (visible is not null) Sessions.Remove(visible);
+        if (SelectedSession?.Id == session.Id) SelectedSession = Sessions.FirstOrDefault();
+        NotifyCollectionSummaryChanged();
+    }
+
+    public Task ExcludeExactHostAsync(CapturedSession session) =>
+        AddExclusionAsync(session.Host, ExclusionScope.ExactHost);
+
+    public Task ExcludeDomainAndSubdomainsAsync(CapturedSession session) =>
+        AddExclusionAsync(GetSiteDomain(session.Host), ExclusionScope.DomainAndSubdomains);
+
+    public async Task AddExclusionAsync(string domain, ExclusionScope scope)
+    {
+        var normalized = NormalizeDomain(domain);
+        if (normalized.Length == 0) return;
+        var rule = new ExclusionRule(normalized, scope);
+        if (!Exclusions.Contains(rule)) Exclusions.Add(rule);
+        RemoveExcludedSessions();
+        await _exclusionStore.SaveAsync(Exclusions);
+    }
+
+    public async Task RemoveExclusionAsync(ExclusionRule rule)
+    {
+        Exclusions.Remove(rule);
+        await _exclusionStore.SaveAsync(Exclusions);
+    }
+
+    public async Task<CertificateOperationResult> InstallCertificateAsync(bool machineWide)
+    {
+        var result = await _proxyEngine.InstallCertificateAsync(machineWide);
+        ApplyCertificateStatus(result.Status);
+        ErrorMessage = result.Succeeded ? null : result.Message;
+        return result;
+    }
+
+    public async Task<CertificateOperationResult> RemoveCertificateAsync(bool machineWide)
+    {
+        var result = await _proxyEngine.RemoveCertificateAsync(machineWide);
+        ApplyCertificateStatus(result.Status);
+        ErrorMessage = result.Succeeded ? null : result.Message;
+        return result;
+    }
+
+    public async Task RefreshCertificateStatusAsync()
+    {
+        var status = await _proxyEngine.GetCertificateStatusAsync();
+        await _dispatcher.InvokeAsync(() => ApplyCertificateStatus(status));
+    }
 
     partial void OnDomainFilterChanged(string value) => ApplyFilter();
     partial void OnNewestFirstChanged(bool value) => ApplyFilter();
@@ -129,6 +189,7 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
 
     private void AddSession(CapturedSession session)
     {
+        if (IsExcluded(session.Host)) return;
         _allSessions.Add(session);
         if (_allSessions.Count > SessionLimit)
         {
@@ -175,8 +236,37 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     }
 
     private bool MatchesFilter(CapturedSession session) =>
-        string.IsNullOrWhiteSpace(DomainFilter)
-        || session.Host.Contains(DomainFilter.Trim(), StringComparison.OrdinalIgnoreCase);
+        !IsExcluded(session.Host) && (string.IsNullOrWhiteSpace(DomainFilter)
+        || session.Host.Contains(DomainFilter.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    private bool IsExcluded(string host) => Exclusions.Any(rule => rule.Matches(host));
+
+    private void RemoveExcludedSessions()
+    {
+        _allSessions.RemoveAll(session => IsExcluded(session.Host));
+        for (var index = Sessions.Count - 1; index >= 0; index--)
+        {
+            if (IsExcluded(Sessions[index].Host)) Sessions.RemoveAt(index);
+        }
+        if (SelectedSession is not null && IsExcluded(SelectedSession.Host)) SelectedSession = Sessions.FirstOrDefault();
+        NotifyCollectionSummaryChanged();
+    }
+
+    private static string NormalizeDomain(string domain)
+    {
+        var value = domain.Trim().TrimEnd('.').ToLowerInvariant();
+        if (value.StartsWith("*.", StringComparison.Ordinal)) value = value[2..];
+        return Uri.CheckHostName(value) == UriHostNameType.Unknown ? string.Empty : value;
+    }
+
+    private static string GetSiteDomain(string host)
+    {
+        if (Uri.CheckHostName(host) != UriHostNameType.Dns) return host;
+        var labels = host.TrimEnd('.').Split('.');
+        if (labels.Length <= 2) return host;
+        var commonSecondLevel = labels[^1].Length == 2 && labels[^2] is "ac" or "co" or "com" or "gov" or "net" or "org";
+        return string.Join('.', commonSecondLevel && labels.Length >= 3 ? labels[^3..] : labels[^2..]);
+    }
 
     private void NotifyCollectionSummaryChanged()
     {
@@ -190,4 +280,12 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
         var result = await launchTask;
         if (!result.Succeeded) ErrorMessage = result.ErrorMessage;
     }
+
+    private void ApplyCertificateStatus(CertificateStatus status) => CertificateStatusText = status switch
+    {
+        { MachineTrusted: true } => "HTTPS certificate: machine trusted",
+        { UserTrusted: true } => "HTTPS certificate: user trusted",
+        { Exists: true } => "HTTPS certificate: not trusted",
+        _ => "HTTPS certificate: not created"
+    };
 }

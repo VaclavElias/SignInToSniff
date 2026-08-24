@@ -64,6 +64,9 @@
         <MenuItem Header="Show _size column" ToggleType="CheckBox" IsChecked="{Binding ShowSizeColumn, Mode=TwoWay}" />
         <MenuItem Header="Show _newest requests first" ToggleType="CheckBox" IsChecked="{Binding NewestFirst, Mode=TwoWay}" />
       </MenuItem>
+      <MenuItem Header="_Tools">
+        <MenuItem Header="Manage _exclusions…" Click="OnManageExclusionsClick" />
+      </MenuItem>
     </Menu>
 
     <Border Grid.Row="1" Background="White" BorderBrush="#DDE2EA" BorderThickness="0,0,0,1" Padding="20,15">
@@ -80,10 +83,21 @@
             <TextBlock Text="{Binding ProxyStatus}" Foreground="#805A00" FontSize="12" FontWeight="SemiBold" />
           </Border>
           <TextBlock Classes="muted" Text="127.0.0.1:8000" VerticalAlignment="Center" />
+          <TextBlock Classes="muted" Text="{Binding CertificateStatusText}" FontSize="11" VerticalAlignment="Center" />
         </StackPanel>
 
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-          <Button Content="Certificate" IsEnabled="False" ToolTip.Tip="Certificate controls arrive in milestone 4." />
+          <Button Content="Certificate" ToolTip.Tip="Manage the HTTPS inspection certificate">
+            <Button.Flyout>
+              <MenuFlyout>
+                <MenuItem Header="Install for current user…" Click="OnInstallUserCertificateClick" />
+                <MenuItem Header="Install for local machine…" Click="OnInstallMachineCertificateClick" />
+                <Separator />
+                <MenuItem Header="Remove current-user trust…" Click="OnRemoveUserCertificateClick" />
+                <MenuItem Header="Remove machine trust…" Click="OnRemoveMachineCertificateClick" />
+              </MenuFlyout>
+            </Button.Flyout>
+          </Button>
           <Button Content="Stop" Command="{Binding StopProxyCommand}" />
           <Button Classes="primary" Content="Start Proxy" Command="{Binding StartProxyCommand}" />
         </StackPanel>
@@ -126,6 +140,14 @@
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="models:CapturedSession">
                 <Grid ColumnDefinitions="64,56,*,Auto,Auto" Margin="9,10">
+                  <Grid.ContextMenu>
+                    <ContextMenu>
+                      <MenuItem Header="Delete request" Click="OnDeleteSessionClick" />
+                      <Separator />
+                      <MenuItem Header="Exclude exact host" Click="OnExcludeExactHostClick" />
+                      <MenuItem Header="Exclude domain and subdomains" Click="OnExcludeSiteDomainClick" />
+                    </ContextMenu>
+                  </Grid.ContextMenu>
                   <TextBlock Text="{Binding Method}" Foreground="#1769E0" FontWeight="Bold" FontSize="12" VerticalAlignment="Center" />
                   <TextBlock Grid.Column="1" Text="{Binding StatusText}" FontWeight="SemiBold" VerticalAlignment="Center" />
                   <StackPanel Grid.Column="2" Margin="4,0,12,0">

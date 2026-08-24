@@ -3,6 +3,7 @@ using SignInToSniff.Proxy;
 using SignInToSniff.Threading;
 using SignInToSniff.ViewModels;
 using SignInToSniff.Launching;
+using SignInToSniff.Exclusions;
 using Xunit;
 
 namespace SignInToSniff.Tests;
@@ -120,7 +121,7 @@ public sealed class MainViewModelTests
     private static (MainViewModel ViewModel, FakeProxyEngine Engine) CreateViewModel()
     {
         var engine = new FakeProxyEngine();
-        return (new MainViewModel(engine, new InlineUiDispatcher(), new FakeClientLauncher()), engine);
+        return (new MainViewModel(engine, new InlineUiDispatcher(), new FakeClientLauncher(), new FakeExclusionStore()), engine);
     }
 
     private static CapturedSession CreateSession(string host) => new(
@@ -150,6 +151,15 @@ public sealed class MainViewModelTests
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
+        public Task<CertificateStatus> GetCertificateStatusAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new CertificateStatus(false, false, false));
+
+        public Task<CertificateOperationResult> InstallCertificateAsync(bool machineWide, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new CertificateOperationResult(true, "Installed", new CertificateStatus(true, true, machineWide)));
+
+        public Task<CertificateOperationResult> RemoveCertificateAsync(bool machineWide, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new CertificateOperationResult(true, "Removed", new CertificateStatus(true, false, false)));
+
         public void Add(CapturedSession session) =>
             CaptureReceived?.Invoke(this, new ProxyCaptureUpdate(CaptureUpdateKind.Added, session));
 
@@ -170,5 +180,11 @@ public sealed class MainViewModelTests
 
         public Task<ClientLaunchResult> LaunchFreshTerminalAsync(string proxyEndpoint) =>
             Task.FromResult(new ClientLaunchResult(true));
+    }
+
+    private sealed class FakeExclusionStore : IExclusionStore
+    {
+        public IReadOnlyList<ExclusionRule> Load() => [];
+        public Task SaveAsync(IReadOnlyCollection<ExclusionRule> rules, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 }

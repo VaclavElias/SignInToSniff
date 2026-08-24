@@ -11,6 +11,7 @@ namespace SignInToSniff.Proxy;
 public sealed class TitaniumProxyEngine : IProxyEngine
 {
     private const int ListenPort = 8000;
+    private const string RootCertificateName = "SignInToSniff Root Certificate Authority";
     private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
     private readonly Channel<ProxyCaptureUpdate> _updates = Channel.CreateBounded<ProxyCaptureUpdate>(
         new BoundedChannelOptions(2_048)
@@ -54,11 +55,9 @@ public sealed class TitaniumProxyEngine : IProxyEngine
 
             try
             {
-                var proxyServer = new ProxyServer(
-                    userTrustRootCertificate: false,
-                    machineTrustRootCertificate: false,
-                    trustRootCertificateAsAdmin: false);
-                var endPoint = new ExplicitProxyEndPoint(IPAddress.Loopback, ListenPort, decryptSsl: false);
+                var proxyServer = CreateProxyServer();
+                var certificateStatus = GetCertificateStatus(proxyServer);
+                var endPoint = new ExplicitProxyEndPoint(IPAddress.Loopback, ListenPort, decryptSsl: certificateStatus.HttpsReady);
 
                 proxyServer.BeforeRequest += OnBeforeRequestAsync;
                 proxyServer.BeforeResponse += OnBeforeResponseAsync;
@@ -125,6 +124,57 @@ public sealed class TitaniumProxyEngine : IProxyEngine
         _pumpCancellation.Dispose();
         _lifecycleLock.Dispose();
     }
+
+    public Task<CertificateStatus> GetCertificateStatusAsync(CancellationToken cancellationToken = default) =>
+        Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            using var server = CreateProxyServer();
+            return GetCertificateStatus(server);
+        }, cancellationToken);
+
+    public Task<CertificateOperationResult> InstallCertificateAsync(bool machineWide, CancellationToken cancellationToken = default) =>
+        Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            using var server = CreateProxyServer();
+            if (!server.CertificateManager.CreateRootCertificate())
+            {
+                var failedStatus = GetCertificateStatus(server);
+                return new CertificateOperationResult(false, "Could not create the SignInToSniff root certificate.", failedStatus);
+            }
+
+            var attempted = machineWide
+                ? server.CertificateManager.TrustRootCertificateAsAdmin(machineTrusted: true)
+                : TrustForCurrentUser(server);
+            var status = GetCertificateStatus(server);
+            var succeeded = attempted && (machineWide ? status.MachineTrusted : status.UserTrusted);
+            var message = succeeded
+                ? $"Certificate trusted for the {(machineWide ? "local machine" : "current user")}. Restart the proxy to enable HTTPS inspection."
+                : "Certificate installation was cancelled or did not complete.";
+            return new CertificateOperationResult(succeeded, message, status);
+        }, cancellationToken);
+
+    public Task<CertificateOperationResult> RemoveCertificateAsync(bool machineWide, CancellationToken cancellationToken = default) =>
+        Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            using var server = CreateProxyServer();
+            if (server.CertificateManager.RootCertificate is null)
+            {
+                return new CertificateOperationResult(true, "No SignInToSniff root certificate is installed.", new CertificateStatus(false, false, false));
+            }
+
+            var attempted = machineWide
+                ? server.CertificateManager.RemoveTrustedRootCertificateAsAdmin(machineTrusted: true)
+                : RemoveForCurrentUser(server);
+            var status = GetCertificateStatus(server);
+            var succeeded = attempted && (machineWide ? !status.MachineTrusted : !status.UserTrusted);
+            return new CertificateOperationResult(
+                succeeded,
+                succeeded ? "Certificate trust was removed. Restart the proxy to disable HTTPS inspection." : "Certificate removal was cancelled or did not complete.",
+                status);
+        }, cancellationToken);
 
     private async Task OnBeforeRequestAsync(object sender, SessionEventArgs eventArgs)
     {
@@ -257,4 +307,44 @@ public sealed class TitaniumProxyEngine : IProxyEngine
 
     private sealed record CaptureState(CapturedSession Session, Stopwatch Stopwatch);
     private sealed record BodyCaptureResult(string Text, long? ByteCount);
+
+    private static ProxyServer CreateProxyServer()
+    {
+        var server = new ProxyServer(
+            RootCertificateName,
+            "SignInToSniff",
+            userTrustRootCertificate: false,
+            machineTrustRootCertificate: false,
+            trustRootCertificateAsAdmin: false);
+        var certificateDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "SignInToSniff");
+        Directory.CreateDirectory(certificateDirectory);
+        server.CertificateManager.PfxFilePath = Path.Combine(certificateDirectory, "rootCert.pfx");
+        server.CertificateManager.RootCertificate = server.CertificateManager.LoadRootCertificate();
+        return server;
+    }
+
+    private static CertificateStatus GetCertificateStatus(ProxyServer server)
+    {
+        var manager = server.CertificateManager;
+        if (manager.RootCertificate is null) return new CertificateStatus(false, false, false);
+        var machineTrusted = false;
+        var userTrusted = false;
+        try { machineTrusted = manager.IsRootCertificateMachineTrusted(); } catch { }
+        try { userTrusted = manager.IsRootCertificateUserTrusted(); } catch { }
+        return new CertificateStatus(true, userTrusted, machineTrusted);
+    }
+
+    private static bool TrustForCurrentUser(ProxyServer server)
+    {
+        server.CertificateManager.TrustRootCertificate();
+        return true;
+    }
+
+    private static bool RemoveForCurrentUser(ProxyServer server)
+    {
+        server.CertificateManager.RemoveTrustedRootCertificate();
+        return true;
+    }
 }
