@@ -20,6 +20,7 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     [ObservableProperty] private string _domainFilter = string.Empty;
     [ObservableProperty] private bool _autoScroll = true;
     [ObservableProperty] private bool _showTimeColumn = true;
+    [ObservableProperty] private bool _showSizeColumn = true;
     [ObservableProperty] private bool _newestFirst;
     [ObservableProperty] private CapturedSession? _selectedSession;
     [ObservableProperty] private ProxyState _proxyState;

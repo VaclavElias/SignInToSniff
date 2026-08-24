@@ -145,7 +145,7 @@ public sealed class TitaniumProxyEngine : IProxyEngine
             uri.Host,
             request.Url,
             FormatHeaders(headers),
-            requestBody,
+            requestBody.Text,
             "Waiting for response…",
             "Waiting for response body…",
             null);
@@ -174,34 +174,37 @@ public sealed class TitaniumProxyEngine : IProxyEngine
         {
             StatusCode = response.StatusCode,
             ResponseHeaders = FormatHeaders(headers),
-            ResponseBody = responseBody,
-            ResponseSizeBytes = response.ContentLength >= 0 ? response.ContentLength : null,
+            ResponseBody = responseBody.Text,
+            ResponseSizeBytes = response.ContentLength > 0 ? response.ContentLength : responseBody.ByteCount,
             DurationMilliseconds = state.Stopwatch.ElapsedMilliseconds
         };
 
         _updates.Writer.TryWrite(new ProxyCaptureUpdate(CaptureUpdateKind.Updated, completed));
     }
 
-    private static async Task<string> CaptureBodyAsync(
+    private static async Task<BodyCaptureResult> CaptureBodyAsync(
         bool hasBody,
         long contentLength,
         string? contentType,
         Func<CancellationToken, Task<byte[]>> readBody,
         string direction)
     {
-        if (!hasBody) return $"No {direction} body";
-        if (!BodyCaptureFormatter.ShouldRead(contentType, contentLength, out var omissionReason)) return omissionReason!;
+        if (!hasBody) return new BodyCaptureResult($"No {direction} body", 0);
+        if (!BodyCaptureFormatter.ShouldRead(contentType, contentLength, out var omissionReason))
+        {
+            return new BodyCaptureResult(omissionReason!, contentLength > 0 ? contentLength : null);
+        }
 
         try
         {
             var body = await readBody(CancellationToken.None).ConfigureAwait(false);
             // Titanium exposes a decoded inspection buffer even though the original
             // Content-Encoding header remains present on the proxied response.
-            return BodyCaptureFormatter.Format(body, contentType, contentEncoding: null);
+            return new BodyCaptureResult(BodyCaptureFormatter.Format(body, contentType, contentEncoding: null), body.LongLength);
         }
         catch (Exception exception)
         {
-            return $"[{char.ToUpperInvariant(direction[0])}{direction[1..]} body capture failed: {exception.Message}]";
+            return new BodyCaptureResult($"[{char.ToUpperInvariant(direction[0])}{direction[1..]} body capture failed: {exception.Message}]", null);
         }
     }
 
@@ -253,4 +256,5 @@ public sealed class TitaniumProxyEngine : IProxyEngine
             : $"Could not start the proxy: {exception.Message}";
 
     private sealed record CaptureState(CapturedSession Session, Stopwatch Stopwatch);
+    private sealed record BodyCaptureResult(string Text, long? ByteCount);
 }

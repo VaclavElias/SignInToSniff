@@ -61,6 +61,7 @@
       </MenuItem>
       <MenuItem Header="_View">
         <MenuItem Header="Show _time column" ToggleType="CheckBox" IsChecked="{Binding ShowTimeColumn, Mode=TwoWay}" />
+        <MenuItem Header="Show _size column" ToggleType="CheckBox" IsChecked="{Binding ShowSizeColumn, Mode=TwoWay}" />
         <MenuItem Header="Show _newest requests first" ToggleType="CheckBox" IsChecked="{Binding NewestFirst, Mode=TwoWay}" />
       </MenuItem>
     </Menu>
@@ -107,11 +108,12 @@
     <Grid Grid.Row="3" ColumnDefinitions="440,8,*" Margin="16">
       <Border Grid.Column="0" Classes="card" ClipToBounds="True">
         <Grid RowDefinitions="Auto,*">
-          <Grid Margin="14,11" ColumnDefinitions="64,56,*,Auto">
+          <Grid Margin="14,11" ColumnDefinitions="64,56,*,Auto,Auto">
             <TextBlock Text="METHOD" Classes="muted" FontSize="11" FontWeight="SemiBold" />
             <TextBlock Grid.Column="1" Text="STATUS" Classes="muted" FontSize="11" FontWeight="SemiBold" />
             <TextBlock Grid.Column="2" Text="DESTINATION" Classes="muted" FontSize="11" FontWeight="SemiBold" />
-            <TextBlock Grid.Column="3" Text="TIME" Classes="muted" FontSize="11" FontWeight="SemiBold" IsVisible="{Binding ShowTimeColumn}" />
+            <TextBlock Grid.Column="3" Text="SIZE" Classes="muted" FontSize="11" FontWeight="SemiBold" Margin="0,0,12,0" IsVisible="{Binding ShowSizeColumn}" />
+            <TextBlock Grid.Column="4" Text="TIME" Classes="muted" FontSize="11" FontWeight="SemiBold" IsVisible="{Binding ShowTimeColumn}" />
           </Grid>
 
           <ListBox
@@ -123,14 +125,14 @@
               SelectedItem="{Binding SelectedSession}">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="models:CapturedSession">
-                <Grid ColumnDefinitions="64,56,*,64,Auto" Margin="9,10">
+                <Grid ColumnDefinitions="64,56,*,Auto,Auto" Margin="9,10">
                   <TextBlock Text="{Binding Method}" Foreground="#1769E0" FontWeight="Bold" FontSize="12" VerticalAlignment="Center" />
                   <TextBlock Grid.Column="1" Text="{Binding StatusText}" FontWeight="SemiBold" VerticalAlignment="Center" />
                   <StackPanel Grid.Column="2" Margin="4,0,12,0">
                     <TextBlock Text="{Binding Host}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding Url}" Classes="muted" FontSize="11" TextTrimming="CharacterEllipsis" />
                   </StackPanel>
-                  <StackPanel Grid.Column="3" VerticalAlignment="Center" Margin="0,0,12,0">
+                  <StackPanel Grid.Column="3" VerticalAlignment="Center" Margin="0,0,12,0" IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).ShowSizeColumn}">
                     <TextBlock Text="{Binding SizeText}" Classes="muted" FontSize="11" HorizontalAlignment="Right" />
                   </StackPanel>
                   <StackPanel Grid.Column="4" IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).ShowTimeColumn}" VerticalAlignment="Center">
@@ -174,7 +176,17 @@
                   </Grid>
                   <GridSplitter Grid.Row="1" Height="8" Background="#DDE2EA" ResizeDirection="Rows" />
                   <Grid Grid.Row="2" RowDefinitions="Auto,*">
-                    <TextBlock Text="Body" FontWeight="SemiBold" Margin="0,0,0,6" />
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+                      <TextBlock Text="Body" FontWeight="SemiBold" VerticalAlignment="Center" />
+                      <Button Grid.Column="1" Content="⋯" Padding="9,0" ToolTip.Tip="Body actions">
+                        <Button.Flyout>
+                          <MenuFlyout>
+                            <MenuItem Header="Copy to clipboard" Click="OnCopyRequestBodyClick" />
+                            <MenuItem Header="Download…" Click="OnDownloadRequestBodyClick" />
+                          </MenuFlyout>
+                        </Button.Flyout>
+                      </Button>
+                    </Grid>
                     <TextBox Grid.Row="1" Classes="payload" Text="{Binding SelectedSession.RequestBody}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" />
                   </Grid>
                 </Grid>
@@ -187,7 +199,17 @@
                   </Grid>
                   <GridSplitter Grid.Row="1" Height="8" Background="#DDE2EA" ResizeDirection="Rows" />
                   <Grid Grid.Row="2" RowDefinitions="Auto,*">
-                    <TextBlock Text="Body" FontWeight="SemiBold" Margin="0,0,0,6" />
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+                      <TextBlock Text="Body" FontWeight="SemiBold" VerticalAlignment="Center" />
+                      <Button Grid.Column="1" Content="⋯" Padding="9,0" ToolTip.Tip="Body actions">
+                        <Button.Flyout>
+                          <MenuFlyout>
+                            <MenuItem Header="Copy to clipboard" Click="OnCopyResponseBodyClick" />
+                            <MenuItem Header="Download…" Click="OnDownloadResponseBodyClick" />
+                          </MenuFlyout>
+                        </Button.Flyout>
+                      </Button>
+                    </Grid>
                     <TextBox Grid.Row="1" Classes="payload" Text="{Binding SelectedSession.ResponseBody}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" />
                   </Grid>
                 </Grid>

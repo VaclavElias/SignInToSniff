@@ -22,7 +22,8 @@ dotnet run --project src/SignInToSniff/SignInToSniff.csproj
 3. Browse or send requests to an `http://` address.
 4. Select a captured request to inspect its URL, headers, body, status, response size, and duration.
 5. Use the domain filter, ordering options, auto-scroll toggle, and draggable Headers/Body splitter as needed.
-6. Click **Stop** when finished.
+6. Use the three-dot menu beside either Body heading to copy or download the displayed body.
+7. Click **Stop** when finished.
 
 ### Fresh Chrome
 
