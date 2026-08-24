@@ -14,6 +14,10 @@ public sealed record CapturedSession(
     long? DurationMilliseconds)
 {
     public long? ResponseSizeBytes { get; init; }
+    public string Protocol { get; init; } = "HTTP/?";
+    public long ReceivedBytes { get; init; }
+    public long SentBytes { get; init; }
+    public string? ProxyError { get; init; }
 
     public string StatusText => StatusCode?.ToString() ?? "…";
 
@@ -26,6 +30,10 @@ public sealed record CapturedSession(
         < 1024 * 1024 => $"{ResponseSizeBytes / 1024d:0.#} KB",
         _ => $"{ResponseSizeBytes / (1024d * 1024d):0.#} MB"
     };
+
+    public string TransferText => $"Captured ↑ {ReceivedBytes:N0} B  ↓ {SentBytes:N0} B";
+
+    public bool HasProxyError => !string.IsNullOrWhiteSpace(ProxyError);
 
     public string StartedAtText => StartedAt.ToLocalTime().ToString("HH:mm:ss");
 

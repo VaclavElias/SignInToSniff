@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Threading.Channels;
+using Microsoft.Extensions.Logging;
 using SignInToSniff.Models;
 using Titanium.Web.Proxy;
 using Titanium.Web.Proxy.EventArguments;
@@ -35,9 +36,13 @@ public sealed class TitaniumProxyEngine : IProxyEngine
 
     public ProxyState State { get; private set; } = ProxyState.Stopped;
 
+    public ProxyMetrics Metrics { get; private set; } = new(0, 0);
+
     public event EventHandler<ProxyCaptureUpdate>? CaptureReceived;
 
     public event EventHandler<ProxyStateChanged>? StateChanged;
+
+    public event EventHandler<ProxyMetrics>? MetricsChanged;
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
@@ -61,6 +66,9 @@ public sealed class TitaniumProxyEngine : IProxyEngine
 
                 proxyServer.BeforeRequest += OnBeforeRequestAsync;
                 proxyServer.BeforeResponse += OnBeforeResponseAsync;
+                proxyServer.AfterResponse += OnAfterResponseAsync;
+                proxyServer.ClientConnectionCountChanged += OnConnectionCountChanged;
+                proxyServer.ServerConnectionCountChanged += OnConnectionCountChanged;
                 proxyServer.AddEndPoint(endPoint);
                 proxyServer.Start();
 
@@ -181,6 +189,7 @@ public sealed class TitaniumProxyEngine : IProxyEngine
         var request = eventArgs.HttpClient.Request;
         var uri = request.RequestUri;
         var headers = request.Headers.Select(header => header.ToString()).ToArray();
+        var formattedHeaders = FormatHeaders(headers);
         var requestBody = await CaptureBodyAsync(
             request.HasBody,
             request.ContentLength,
@@ -194,11 +203,15 @@ public sealed class TitaniumProxyEngine : IProxyEngine
             null,
             uri.Host,
             request.Url,
-            FormatHeaders(headers),
+            formattedHeaders,
             requestBody.Text,
             "Waiting for response…",
             "Waiting for response body…",
-            null);
+            null)
+        {
+            Protocol = FormatProtocol(request.HttpVersion),
+            ReceivedBytes = GetCapturedSize(formattedHeaders, request.ContentLength, requestBody.ByteCount)
+        };
 
         eventArgs.HttpClient.UserData = new CaptureState(session, Stopwatch.StartNew());
         _updates.Writer.TryWrite(new ProxyCaptureUpdate(CaptureUpdateKind.Added, session));
@@ -214,6 +227,7 @@ public sealed class TitaniumProxyEngine : IProxyEngine
         state.Stopwatch.Stop();
         var response = eventArgs.HttpClient.Response;
         var headers = response.Headers.Select(header => header.ToString()).ToArray();
+        var formattedHeaders = FormatHeaders(headers);
         var responseBody = await CaptureBodyAsync(
             response.HasBody,
             response.ContentLength,
@@ -223,13 +237,28 @@ public sealed class TitaniumProxyEngine : IProxyEngine
         var completed = state.Session with
         {
             StatusCode = response.StatusCode,
-            ResponseHeaders = FormatHeaders(headers),
+            ResponseHeaders = formattedHeaders,
             ResponseBody = responseBody.Text,
             ResponseSizeBytes = response.ContentLength > 0 ? response.ContentLength : responseBody.ByteCount,
+            Protocol = FormatProtocol(response.HttpVersion),
+            SentBytes = GetCapturedSize(formattedHeaders, response.ContentLength, responseBody.ByteCount),
             DurationMilliseconds = state.Stopwatch.ElapsedMilliseconds
         };
 
+        state.Session = completed;
         _updates.Writer.TryWrite(new ProxyCaptureUpdate(CaptureUpdateKind.Updated, completed));
+    }
+
+    private Task OnAfterResponseAsync(object sender, SessionEventArgs eventArgs)
+    {
+        if (eventArgs.HttpClient.UserData is not CaptureState state) return Task.CompletedTask;
+        var completed = state.Session with
+        {
+            ProxyError = eventArgs.Exception?.GetBaseException().Message
+        };
+        state.Session = completed;
+        _updates.Writer.TryWrite(new ProxyCaptureUpdate(CaptureUpdateKind.Updated, completed));
+        return Task.CompletedTask;
     }
 
     private static async Task<BodyCaptureResult> CaptureBodyAsync(
@@ -275,6 +304,9 @@ public sealed class TitaniumProxyEngine : IProxyEngine
 
         _proxyServer.BeforeRequest -= OnBeforeRequestAsync;
         _proxyServer.BeforeResponse -= OnBeforeResponseAsync;
+        _proxyServer.AfterResponse -= OnAfterResponseAsync;
+        _proxyServer.ClientConnectionCountChanged -= OnConnectionCountChanged;
+        _proxyServer.ServerConnectionCountChanged -= OnConnectionCountChanged;
 
         try
         {
@@ -285,6 +317,8 @@ public sealed class TitaniumProxyEngine : IProxyEngine
             _proxyServer.Dispose();
             _proxyServer = null;
             _endPoint = null;
+            Metrics = new ProxyMetrics(0, 0);
+            MetricsChanged?.Invoke(this, Metrics);
         }
     }
 
@@ -305,7 +339,28 @@ public sealed class TitaniumProxyEngine : IProxyEngine
             ? $"Could not start the proxy on 127.0.0.1:{ListenPort}. The port may already be in use."
             : $"Could not start the proxy: {exception.Message}";
 
-    private sealed record CaptureState(CapturedSession Session, Stopwatch Stopwatch);
+    private static string FormatProtocol(Version version) => version.Major switch
+    {
+        >= 2 => $"HTTP/{version.Major}",
+        > 0 => $"HTTP/{version.Major}.{version.Minor}",
+        _ => "HTTP/?"
+    };
+
+    private static long GetCapturedSize(string headers, long declaredBodySize, long? inspectedBodySize) =>
+        System.Text.Encoding.UTF8.GetByteCount(headers) + Math.Max(0, declaredBodySize > 0 ? declaredBodySize : inspectedBodySize ?? 0);
+
+    private void OnConnectionCountChanged(object? sender, EventArgs eventArgs)
+    {
+        if (_proxyServer is null) return;
+        Metrics = new ProxyMetrics(_proxyServer.ClientConnectionCount, _proxyServer.ServerConnectionCount);
+        MetricsChanged?.Invoke(this, Metrics);
+    }
+
+    private sealed class CaptureState(CapturedSession session, Stopwatch stopwatch)
+    {
+        public CapturedSession Session { get; set; } = session;
+        public Stopwatch Stopwatch { get; } = stopwatch;
+    }
     private sealed record BodyCaptureResult(string Text, long? ByteCount);
 
     private static ProxyServer CreateProxyServer()
@@ -322,6 +377,10 @@ public sealed class TitaniumProxyEngine : IProxyEngine
         Directory.CreateDirectory(certificateDirectory);
         server.CertificateManager.PfxFilePath = Path.Combine(certificateDirectory, "rootCert.pfx");
         server.CertificateManager.RootCertificate = server.CertificateManager.LoadRootCertificate();
+        server.Logging.EnableConsole = false;
+        server.Logging.EnableFile = true;
+        server.Logging.FilePath = Path.Combine(certificateDirectory, "logs", "proxy.log");
+        server.Logging.MinimumLevel = LogLevel.Warning;
         return server;
     }
 

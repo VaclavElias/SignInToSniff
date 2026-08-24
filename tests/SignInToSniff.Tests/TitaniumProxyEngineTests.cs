@@ -20,10 +20,12 @@ public sealed class TitaniumProxyEngineTests
         await using var engine = new TitaniumProxyEngine();
         var added = new TaskCompletionSource<ProxyCaptureUpdate>(TaskCreationOptions.RunContinuationsAsynchronously);
         var updated = new TaskCompletionSource<ProxyCaptureUpdate>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completedTransfer = new TaskCompletionSource<ProxyCaptureUpdate>(TaskCreationOptions.RunContinuationsAsynchronously);
         engine.CaptureReceived += (_, update) =>
         {
             if (update.Kind == CaptureUpdateKind.Added) added.TrySetResult(update);
             if (update.Kind == CaptureUpdateKind.Updated) updated.TrySetResult(update);
+            if (update.Kind == CaptureUpdateKind.Updated && update.Session.SentBytes > 0) completedTransfer.TrySetResult(update);
         };
 
         await engine.StartAsync(timeout.Token);
@@ -39,6 +41,7 @@ public sealed class TitaniumProxyEngineTests
 
         var requestUpdate = await added.Task.WaitAsync(timeout.Token);
         var responseUpdate = await updated.Task.WaitAsync(timeout.Token);
+        var transferUpdate = await completedTransfer.Task.WaitAsync(timeout.Token);
         await originTask;
 
         Assert.Equal("GET", requestUpdate.Session.Method);
@@ -49,6 +52,10 @@ public sealed class TitaniumProxyEngineTests
         Assert.Equal("metadata captured", responseUpdate.Session.ResponseBody);
         Assert.Equal("17 B", responseUpdate.Session.SizeText);
         Assert.NotNull(responseUpdate.Session.DurationMilliseconds);
+        Assert.Equal("HTTP/1.1", responseUpdate.Session.Protocol);
+        Assert.True(transferUpdate.Session.ReceivedBytes > 0);
+        Assert.True(transferUpdate.Session.SentBytes > 0);
+        Assert.Null(transferUpdate.Session.ProxyError);
     }
 
     [Fact]

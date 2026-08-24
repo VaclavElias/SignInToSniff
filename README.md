@@ -29,6 +29,8 @@ dotnet run --project src/SignInToSniff/SignInToSniff.csproj
 
 The full-width footer reports total requests captured during the current app session, requests hidden by the active domain filter or exclusion rules, and the number of saved exclusion rules.
 
+It also reports active client/server connection counts. Each request row shows the negotiated HTTP protocol, and the selected request shows bytes received/sent after completion. Proxy failures appear in the detail pane. Press **Delete** while the request list is focused to remove the selected request. Titanium diagnostic warnings and errors are written to `SignInToSniff/logs/proxy.log` under the current user's local application-data directory.
+
 ### Fresh Chrome
 
 Choose **Intercept -> Fresh Chrome** to open an independent Chrome window already configured for interception. It uses a disposable profile and does not affect your normal Chrome profile or permanent Chrome settings.

@@ -256,13 +256,16 @@ public sealed class MainViewModelTests
     {
         public string Endpoint => "127.0.0.1:8000";
         public ProxyState State { get; private set; }
+        public ProxyMetrics Metrics { get; private set; } = new(0, 0);
         public event EventHandler<ProxyCaptureUpdate>? CaptureReceived;
         public event EventHandler<ProxyStateChanged>? StateChanged;
+        public event EventHandler<ProxyMetrics>? MetricsChanged;
 
         public Task StartAsync(CancellationToken cancellationToken = default)
         {
             SetState(ProxyState.Starting);
             SetState(ProxyState.Running);
+            MetricsChanged?.Invoke(this, Metrics);
             return Task.CompletedTask;
         }
 

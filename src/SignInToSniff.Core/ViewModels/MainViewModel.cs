@@ -37,6 +37,8 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     [ObservableProperty] private ProxyState _proxyState;
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private string _certificateStatusText = "Certificate status unknown";
+    [ObservableProperty] private int _clientConnectionCount;
+    [ObservableProperty] private int _serverConnectionCount;
 
     public MainViewModel(IProxyEngine proxyEngine, IUiDispatcher dispatcher, IClientLauncher clientLauncher, IExclusionStore exclusionStore)
     {
@@ -48,6 +50,9 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
         ProxyState = proxyEngine.State;
         proxyEngine.CaptureReceived += OnCaptureReceived;
         proxyEngine.StateChanged += OnProxyStateChanged;
+        proxyEngine.MetricsChanged += OnProxyMetricsChanged;
+        ClientConnectionCount = proxyEngine.Metrics.ClientConnections;
+        ServerConnectionCount = proxyEngine.Metrics.ServerConnections;
         _ = RefreshCertificateStatusAsync();
     }
 
@@ -74,6 +79,7 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     public string TotalCapturedText => $"Total captured: {_totalCaptured:N0}";
     public string HiddenRequestsText => $"Hidden: {Math.Max(0, _allSessions.Count - Sessions.Count):N0}";
     public string ExclusionCountText => $"Exclusion rules: {Exclusions.Count:N0}";
+    public string ConnectionCountText => $"Connections: {ClientConnectionCount:N0} client / {ServerConnectionCount:N0} server";
     public string SearchScopeBulkActionText => AllSearchScopesSelected
         ? "Deselect all"
         : NoSearchScopesSelected
@@ -169,6 +175,8 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
     }
 
     partial void OnErrorMessageChanged(string? value) => OnPropertyChanged(nameof(HasError));
+    partial void OnClientConnectionCountChanged(int value) => OnPropertyChanged(nameof(ConnectionCountText));
+    partial void OnServerConnectionCountChanged(int value) => OnPropertyChanged(nameof(ConnectionCountText));
 
     [RelayCommand(CanExecute = nameof(CanStartProxy))]
     private async Task StartProxyAsync()
@@ -221,6 +229,7 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
         _disposed = true;
         _proxyEngine.CaptureReceived -= OnCaptureReceived;
         _proxyEngine.StateChanged -= OnProxyStateChanged;
+        _proxyEngine.MetricsChanged -= OnProxyMetricsChanged;
         _searchCancellation?.Cancel();
         _searchCancellation?.Dispose();
         await _proxyEngine.DisposeAsync();
@@ -234,6 +243,13 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
         {
             ProxyState = update.State;
             ErrorMessage = update.ErrorMessage;
+        });
+
+    private void OnProxyMetricsChanged(object? sender, ProxyMetrics metrics) =>
+        _ = _dispatcher.InvokeAsync(() =>
+        {
+            ClientConnectionCount = metrics.ClientConnections;
+            ServerConnectionCount = metrics.ServerConnections;
         });
 
     private void ApplyCaptureUpdate(ProxyCaptureUpdate update)
@@ -320,7 +336,9 @@ public sealed partial class MainViewModel : ViewModelBase, IAsyncDisposable
         (options.MethodStatus && (Contains(session.Method, token) || Contains(session.StatusText, token))) ||
         (options.Headers && (Contains(session.RequestHeaders, token) || Contains(session.ResponseHeaders, token))) ||
         (options.Bodies && (Contains(session.RequestBody, token) || Contains(session.ResponseBody, token))) ||
-        (options.Metadata && (Contains(session.SizeText, token) || Contains(session.DurationText, token) || Contains(session.StartedAtText, token)));
+        (options.Metadata && (Contains(session.SizeText, token) || Contains(session.DurationText, token) ||
+            Contains(session.StartedAtText, token) || Contains(session.Protocol, token) ||
+            Contains(session.TransferText, token) || Contains(session.ProxyError ?? string.Empty, token)));
 
     private static bool Contains(string value, string token) => value.Contains(token, StringComparison.OrdinalIgnoreCase);
 

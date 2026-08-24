@@ -21,6 +21,8 @@ public sealed record ProxyCaptureUpdate(CaptureUpdateKind Kind, CapturedSession 
 
 public sealed record ProxyStateChanged(ProxyState State, string? ErrorMessage = null);
 
+public sealed record ProxyMetrics(int ClientConnections, int ServerConnections);
+
 public sealed record CertificateStatus(bool Exists, bool UserTrusted, bool MachineTrusted)
 {
     public bool HttpsReady => UserTrusted || MachineTrusted;
@@ -34,9 +36,13 @@ public interface IProxyEngine : IAsyncDisposable
 
     ProxyState State { get; }
 
+    ProxyMetrics Metrics { get; }
+
     event EventHandler<ProxyCaptureUpdate>? CaptureReceived;
 
     event EventHandler<ProxyStateChanged>? StateChanged;
+
+    event EventHandler<ProxyMetrics>? MetricsChanged;
 
     Task StartAsync(CancellationToken cancellationToken = default);
 

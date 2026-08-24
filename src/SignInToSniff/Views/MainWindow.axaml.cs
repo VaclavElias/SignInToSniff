@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Platform.Storage;
@@ -215,6 +216,13 @@ public sealed partial class MainWindow : Window
         {
             _viewModel.DeleteSession(session);
         }
+    }
+
+    private void OnSessionListKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Delete || _viewModel?.SelectedSession is not { } session) return;
+        _viewModel.DeleteSession(session);
+        e.Handled = true;
     }
 
     private async void OnExcludeExactHostClick(object? sender, RoutedEventArgs e)
