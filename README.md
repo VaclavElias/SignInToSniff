@@ -2,6 +2,8 @@
 
 SignInToSniff is a staged, cross-platform desktop HTTP(S) traffic inspector built with .NET and Avalonia.
 
+<img width="958" height="820" alt="image" src="https://github.com/user-attachments/assets/7e05b002-6bcb-496a-9caa-cf94c9dfdfaf" />
+
 ## Current milestone: opt-in HTTPS inspection
 
 The app can deliberately start an HTTP(S) proxy on `127.0.0.1:8000` and display request/response metadata, headers, and bounded text bodies. JSON is formatted for readability, and gzip, Brotli, and deflate response bodies are decoded for display. It never changes system proxy settings. HTTPS decryption is strictly opt-in and requires explicit certificate installation confirmation.
